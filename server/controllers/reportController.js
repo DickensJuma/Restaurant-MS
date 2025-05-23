@@ -202,12 +202,12 @@ exports.getPopularMeals = async (req, res) => {
       };
     }
 
-    const orders = await Order.find(query).populate("meals.mealId");
+    const orders = await Order.find(query).populate("items.mealId");
 
     // Calculate meal popularity
     const mealStats = {};
     orders.forEach((order) => {
-      order.meals.forEach((item) => {
+      order.items.forEach((item) => {
         if (!item.mealId) return; // Skip if meal reference is missing
 
         const mealId = item.mealId._id.toString();
@@ -216,10 +216,16 @@ exports.getPopularMeals = async (req, res) => {
             name: item.mealId.name,
             quantity: 0,
             revenue: 0,
+            image:
+              item.mealId.images && item.mealId.images.length > 0
+                ? item.mealId.images[0].url
+                : null,
+            category: item.mealId.category,
+            price: item.mealId.price,
           };
         }
         mealStats[mealId].quantity += item.quantity;
-        mealStats[mealId].revenue += item.price * item.quantity;
+        mealStats[mealId].revenue += item.mealId.price * item.quantity;
       });
     });
 
@@ -230,6 +236,9 @@ exports.getPopularMeals = async (req, res) => {
         name: stats.name,
         quantity: stats.quantity,
         revenue: stats.revenue,
+        image: stats.image,
+        category: stats.category,
+        price: stats.price,
       }))
       .sort((a, b) => b.quantity - a.quantity);
 
@@ -329,32 +338,140 @@ exports.getRecentOrders = async (req, res) => {
     const orders = await Order.find()
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
-      .populate("placedBy", "name email")
-      .populate("meals.mealId", "name price");
+      .populate("staffId", "name email")
+      .populate("items.mealId", "name price dietaryInfo images");
 
     const recentOrders = orders.map((order) => ({
       key: order._id,
       orderId: order._id,
-      customer: order.placedBy ? order.placedBy.name : "Guest",
-      items: order.meals.map((item) => ({
+      customer: order.customerName || "Guest",
+      items: order.items.map((item) => ({
         name: item.mealId ? item.mealId.name : "Unknown Meal",
         quantity: item.quantity,
-        price: item.price,
+        price: item.mealId ? item.mealId.price : 0,
+        dietaryInfo: item.mealId ? item.mealId.dietaryInfo : null,
+        image:
+          item.mealId && item.mealId.images && item.mealId.images.length > 0
+            ? item.mealId.images[0].url
+            : null,
       })),
       total: order.total,
       status: order.status,
+      paymentMethod: order.paymentMethod,
+      staff: order.staffId
+        ? {
+            name: order.staffId.name,
+            email: order.staffId.email,
+          }
+        : null,
       createdAt: order.createdAt,
     }));
 
-    res.json({
-      recentOrders,
-      summary: {
-        totalOrders: recentOrders.length,
-        totalRevenue: recentOrders.reduce((sum, order) => sum + order.total, 0),
-      },
-    });
+    res.json(recentOrders);
   } catch (error) {
     console.error("Recent orders error:", error);
     res.status(500).json({ error: "Failed to fetch recent orders" });
+  }
+};
+
+// Get performance stats
+exports.getPerformanceStats = async (req, res) => {
+  try {
+    const { period = "monthly" } = req.query;
+    const now = new Date();
+    let startDate;
+
+    // Set the start date based on the period
+    switch (period) {
+      case "daily":
+        startDate = new Date(now.setDate(now.getDate() - 7));
+        break;
+      case "weekly":
+        startDate = new Date(now.setDate(now.getDate() - 30));
+        break;
+      case "monthly":
+        startDate = new Date(now.setMonth(now.getMonth() - 6));
+        break;
+      default:
+        startDate = new Date(now.setMonth(now.getMonth() - 6));
+    }
+
+    // Get orders within the date range
+    const orders = await Order.find({
+      createdAt: { $gte: startDate },
+    }).populate("staffId", "name");
+
+    // Calculate performance metrics
+    const performanceData = orders.reduce((acc, order) => {
+      const date = order.createdAt.toISOString().slice(0, 7); // YYYY-MM format
+      const staffId = order.staffId._id.toString();
+
+      if (!acc[date]) {
+        acc[date] = {
+          date,
+          totalSales: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+          staffPerformance: {},
+        };
+      }
+
+      // Update overall metrics
+      acc[date].totalSales += order.total;
+      acc[date].totalOrders += 1;
+      acc[date].averageOrderValue =
+        acc[date].totalSales / acc[date].totalOrders;
+
+      // Update staff-specific metrics
+      if (!acc[date].staffPerformance[staffId]) {
+        acc[date].staffPerformance[staffId] = {
+          staffName: order.staffId.name,
+          totalSales: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+        };
+      }
+
+      acc[date].staffPerformance[staffId].totalSales += order.total;
+      acc[date].staffPerformance[staffId].totalOrders += 1;
+      acc[date].staffPerformance[staffId].averageOrderValue =
+        acc[date].staffPerformance[staffId].totalSales /
+        acc[date].staffPerformance[staffId].totalOrders;
+
+      return acc;
+    }, {});
+
+    // Convert to array and sort by date
+    const analytics = Object.values(performanceData).sort(
+      (a, b) => new Date(a.date) - new Date(b.date)
+    );
+
+    // Calculate summary statistics
+    const summary = {
+      totalSales: analytics.reduce((sum, data) => sum + data.totalSales, 0),
+      totalOrders: analytics.reduce((sum, data) => sum + data.totalOrders, 0),
+      averageOrderValue:
+        analytics.reduce((sum, data) => sum + data.averageOrderValue, 0) /
+        analytics.length,
+      period: period,
+      dateRange: {
+        start: startDate.toISOString(),
+        end: new Date().toISOString(),
+      },
+    };
+
+    res.json({
+      success: true,
+      data: {
+        analytics,
+        summary,
+      },
+    });
+  } catch (error) {
+    console.error("Performance stats error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to generate performance stats",
+    });
   }
 };

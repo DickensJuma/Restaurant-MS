@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   Form,
@@ -17,6 +17,8 @@ import {
   Menu,
   Dropdown,
   message,
+  Radio,
+  notification,
 } from "antd";
 import {
   DownloadOutlined,
@@ -25,6 +27,14 @@ import {
   PieChartOutlined,
   FileExcelOutlined,
   FilePdfOutlined,
+  UserOutlined,
+  UserAddOutlined,
+  TeamOutlined,
+  ClockCircleOutlined,
+  ShoppingCartOutlined,
+  CalendarOutlined,
+  CheckCircleOutlined,
+  InfoCircleOutlined,
 } from "@ant-design/icons";
 import { reportsAPI } from "../services/api";
 import {
@@ -46,6 +56,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import dayjs from "dayjs";
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -64,9 +75,210 @@ function Reports() {
   const [form] = Form.useForm();
   const [reportType, setReportType] = useState("sales");
   const [reportData, setReportData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("chart");
+  const [dateFilter, setDateFilter] = useState("custom");
+
+  // Fetch initial data when component mounts
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  // Fetch data when report type changes
+  useEffect(() => {
+    if (reportType) {
+      fetchData();
+    }
+  }, [reportType]);
+
+  const fetchInitialData = async () => {
+    try {
+      setLoading(true);
+      const today = dayjs().format("YYYY-MM-DD");
+      const response = await reportsAPI.getSalesReport({
+        startDate: today,
+        endDate: today,
+      });
+      console.log("Initial sales data:", response); // Debug log
+
+      if (response?.data) {
+        setReportData(response.data);
+      } else {
+        // Initialize with empty data structure if no data is available
+        setReportData({
+          dailySales: [],
+          summary: {
+            totalSales: 0,
+            totalOrders: 0,
+            averageOrderValue: 0,
+          },
+          tableData: [],
+          columns: [
+            { title: "Date", dataIndex: "date", key: "date" },
+            { title: "Sales", dataIndex: "sales", key: "sales" },
+            { title: "Orders", dataIndex: "orders", key: "orders" },
+          ],
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching initial data:", error);
+      setError(error.message);
+      message.error("Failed to fetch initial data");
+      // Initialize with empty data structure on error
+      setReportData({
+        dailySales: [],
+        summary: {
+          totalSales: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+        },
+        tableData: [],
+        columns: [
+          { title: "Date", dataIndex: "date", key: "date" },
+          { title: "Sales", dataIndex: "sales", key: "sales" },
+          { title: "Orders", dataIndex: "orders", key: "orders" },
+        ],
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      let response;
+      const today = dayjs().format("YYYY-MM-DD");
+
+      switch (reportType) {
+        case "sales":
+          response = await reportsAPI.getSalesReport({
+            startDate: today,
+            endDate: today,
+          });
+          break;
+        case "customer-analytics":
+          response = await reportsAPI.getCustomerAnalytics({
+            startDate: today,
+            endDate: today,
+          });
+          break;
+        case "peak-hours":
+          response = await reportsAPI.getPeakHours({
+            startDate: today,
+            endDate: today,
+          });
+          break;
+        default:
+          throw new Error("Invalid report type");
+      }
+
+      if (response?.data) {
+        setReportData(response.data);
+      } else {
+        // Initialize with empty data structure if no data is available
+        setReportData({
+          dailySales: [],
+          summary: {
+            totalSales: 0,
+            totalOrders: 0,
+            averageOrderValue: 0,
+          },
+          tableData: [],
+          columns: [
+            { title: "Date", dataIndex: "date", key: "date" },
+            { title: "Sales", dataIndex: "sales", key: "sales" },
+            { title: "Orders", dataIndex: "orders", key: "orders" },
+          ],
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching report data:", error);
+      setError(error.message);
+      message.error("Failed to fetch report data");
+      // Initialize with empty data structure on error
+      setReportData({
+        dailySales: [],
+        summary: {
+          totalSales: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+        },
+        tableData: [],
+        columns: [
+          { title: "Date", dataIndex: "date", key: "date" },
+          { title: "Sales", dataIndex: "sales", key: "sales" },
+          { title: "Orders", dataIndex: "orders", key: "orders" },
+        ],
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDateRange = (filter) => {
+    const now = dayjs();
+    let startDate, endDate;
+
+    switch (filter) {
+      case "today":
+        startDate = now.startOf("day");
+        endDate = now.endOf("day");
+        break;
+      case "week":
+        startDate = now.startOf("week");
+        endDate = now.endOf("week");
+        break;
+      case "month":
+        startDate = now.startOf("month");
+        endDate = now.endOf("month");
+        break;
+      case "custom": {
+        const currentRange = form.getFieldValue("dateRange");
+        if (currentRange && currentRange[0] && currentRange[1]) {
+          startDate = dayjs(currentRange[0]);
+          endDate = dayjs(currentRange[1]);
+        } else {
+          startDate = now.subtract(7, "day");
+          endDate = now;
+        }
+        break;
+      }
+      default:
+        startDate = now.subtract(7, "day");
+        endDate = now;
+    }
+
+    return [startDate, endDate];
+  };
+
+  const showNotification = (type, title, message) => {
+    notification[type]({
+      message: title,
+      description: message,
+      placement: "topRight",
+      duration: 4.5,
+      icon:
+        type === "success" ? (
+          <CheckCircleOutlined style={{ color: "#52c41a" }} />
+        ) : (
+          <InfoCircleOutlined style={{ color: "#1890ff" }} />
+        ),
+    });
+  };
+
+  const handleDateFilterChange = (e) => {
+    const filter = e.target.value;
+    setDateFilter(filter);
+    const [startDate, endDate] = getDateRange(filter);
+    form.setFieldsValue({ dateRange: [startDate, endDate] });
+    showNotification("info", "Date Range Updated", `Changed to ${filter} view`);
+    handleGenerateReport({
+      ...form.getFieldsValue(),
+      dateRange: [startDate, endDate],
+    });
+  };
 
   const handleGenerateReport = async (values) => {
     setLoading(true);
@@ -74,32 +286,73 @@ function Reports() {
     try {
       let response;
       const { dateRange } = values;
+
+      if (!dateRange || !Array.isArray(dateRange) || dateRange.length !== 2) {
+        throw new Error("Please select a valid date range");
+      }
+
       const [startDate, endDate] = dateRange;
+
+      // Validate that both dates are dayjs objects
+      if (!dayjs.isDayjs(startDate) || !dayjs.isDayjs(endDate)) {
+        throw new Error("Invalid date format");
+      }
+
+      // Check if dates are valid
+      if (!startDate.isValid() || !endDate.isValid()) {
+        throw new Error("Invalid date range selected");
+      }
+
+      // Check if end date is after start date
+      if (endDate.isBefore(startDate)) {
+        throw new Error("End date must be after start date");
+      }
+
+      const formattedStartDate = startDate.format("YYYY-MM-DD");
+      const formattedEndDate = endDate.format("YYYY-MM-DD");
+
+      showNotification(
+        "info",
+        "Generating Report",
+        "Please wait while we fetch your report data..."
+      );
 
       switch (reportType) {
         case "sales":
           response = await reportsAPI.getSalesReport({
-            startDate: startDate.format("YYYY-MM-DD"),
-            endDate: endDate.format("YYYY-MM-DD"),
+            startDate: formattedStartDate,
+            endDate: formattedEndDate,
           });
           break;
         case "customer-analytics":
           response = await reportsAPI.getCustomerAnalytics({
-            startDate: startDate.format("YYYY-MM-DD"),
-            endDate: endDate.format("YYYY-MM-DD"),
+            startDate: formattedStartDate,
+            endDate: formattedEndDate,
           });
           break;
         case "peak-hours":
           response = await reportsAPI.getPeakHours({
-            startDate: startDate.format("YYYY-MM-DD"),
-            endDate: endDate.format("YYYY-MM-DD"),
+            startDate: formattedStartDate,
+            endDate: formattedEndDate,
           });
           break;
+        default:
+          throw new Error("Invalid report type");
       }
       setReportData(response.data);
+      showNotification(
+        "success",
+        "Report Generated",
+        `Successfully generated ${reportType} report for the selected period.`
+      );
     } catch (error) {
+      console.error("Error generating report:", error);
       setError(error.message);
-      message.error("Failed to generate report");
+      showNotification(
+        "error",
+        "Error",
+        `Failed to generate report: ${error.message}`
+      );
     } finally {
       setLoading(false);
     }
@@ -107,19 +360,25 @@ function Reports() {
 
   const handleExport = (format) => {
     if (!reportData) {
-      message.error("Please generate a report first");
+      showNotification(
+        "error",
+        "Export Failed",
+        "Please generate a report first"
+      );
       return;
     }
 
     try {
       const formattedData = formatReportData(reportData, reportType);
-      const filename = `${reportType}-report-${
-        new Date().toISOString().split("T")[0]
-      }`;
+      const filename = `${reportType}-report-${dayjs().format("YYYY-MM-DD")}`;
 
       if (format === "Excel") {
         exportToExcel(formattedData.data, filename);
-        message.success("Report exported to Excel successfully");
+        showNotification(
+          "success",
+          "Export Successful",
+          "Report exported to Excel successfully"
+        );
       } else if (format === "PDF") {
         exportToPDF(
           formattedData.data,
@@ -127,10 +386,18 @@ function Reports() {
           filename,
           reportType
         );
-        message.success("Report exported to PDF successfully");
+        showNotification(
+          "success",
+          "Export Successful",
+          "Report exported to PDF successfully"
+        );
       }
     } catch (error) {
-      message.error("Failed to export report: " + error.message);
+      showNotification(
+        "error",
+        "Export Failed",
+        `Failed to export report: ${error.message}`
+      );
       console.error("Export error:", error);
     }
   };
@@ -180,6 +447,12 @@ function Reports() {
                 stroke="#8884d8"
                 name="Sales"
               />
+              <Line
+                type="monotone"
+                dataKey="orders"
+                stroke="#82ca9d"
+                name="Orders"
+              />
             </LineChart>
           </ResponsiveContainer>
         );
@@ -223,36 +496,129 @@ function Reports() {
   const renderSummary = () => {
     if (!reportData) return null;
 
-    return (
-      <Row gutter={16}>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Total Sales"
-              value={reportData.summary?.totalSales || 0}
-              formatter={(value) => formatCurrency(value)}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Total Orders"
-              value={reportData.summary?.totalOrders || 0}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Average Order Value"
-              value={reportData.summary?.averageOrderValue || 0}
-              formatter={(value) => formatCurrency(value)}
-            />
-          </Card>
-        </Col>
-      </Row>
-    );
+    console.log("Rendering summary with data:", reportData); // Debug log
+
+    switch (reportType) {
+      case "sales": {
+        const totalSales = reportData.summary?.totalSales || 0;
+        const totalOrders = reportData.summary?.totalOrders || 0;
+        const averageOrderValue = reportData.summary?.averageOrderValue || 0;
+
+        console.log("Sales summary:", {
+          totalSales,
+          totalOrders,
+          averageOrderValue,
+        }); // Debug log
+
+        return (
+          <Row gutter={16}>
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="Total Sales"
+                  value={totalSales}
+                  formatter={(value) => formatCurrency(value)}
+                  prefix={<BarChartOutlined />}
+                  valueStyle={{ color: totalSales > 0 ? "#3f8600" : "#cf1322" }}
+                />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="Total Orders"
+                  value={totalOrders}
+                  prefix={<LineChartOutlined />}
+                  valueStyle={{
+                    color: totalOrders > 0 ? "#3f8600" : "#cf1322",
+                  }}
+                />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="Average Order Value"
+                  value={averageOrderValue}
+                  formatter={(value) => formatCurrency(value)}
+                  prefix={<PieChartOutlined />}
+                  valueStyle={{
+                    color: averageOrderValue > 0 ? "#3f8600" : "#cf1322",
+                  }}
+                />
+              </Card>
+            </Col>
+          </Row>
+        );
+      }
+      case "customer-analytics":
+        return (
+          <Row gutter={16}>
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="Total Customers"
+                  value={reportData.summary?.totalCustomers || 0}
+                  prefix={<UserOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="New Customers"
+                  value={reportData.summary?.newCustomers || 0}
+                  prefix={<UserAddOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="Returning Customers"
+                  value={reportData.summary?.returningCustomers || 0}
+                  prefix={<TeamOutlined />}
+                />
+              </Card>
+            </Col>
+          </Row>
+        );
+      case "peak-hours":
+        return (
+          <Row gutter={16}>
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="Busiest Hour"
+                  value={reportData.summary?.busiestHour || "N/A"}
+                  prefix={<ClockCircleOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="Total Orders"
+                  value={reportData.summary?.totalOrders || 0}
+                  prefix={<ShoppingCartOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="Average Orders/Hour"
+                  value={reportData.summary?.averageOrdersPerHour || 0}
+                  precision={2}
+                  prefix={<BarChartOutlined />}
+                />
+              </Card>
+            </Col>
+          </Row>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
@@ -268,21 +634,27 @@ function Reports() {
         <Col>
           <Space>
             <Dropdown overlay={exportMenu} trigger={["click"]}>
-              <Button icon={<DownloadOutlined />}>Export</Button>
+              <Button icon={<DownloadOutlined />} disabled={!reportData}>
+                Export
+              </Button>
             </Dropdown>
           </Space>
         </Col>
       </Row>
 
       <Card style={{ marginBottom: "24px" }}>
-        <Form form={form} onFinish={handleGenerateReport} layout="vertical">
+        <Form
+          form={form}
+          onFinish={handleGenerateReport}
+          layout="vertical"
+          initialValues={{
+            reportType: "sales",
+            dateRange: [dayjs().subtract(7, "day"), dayjs()],
+          }}
+        >
           <Row gutter={16}>
             <Col xs={24} md={8}>
-              <Form.Item
-                name="reportType"
-                label="Report Type"
-                initialValue="sales"
-              >
+              <Form.Item name="reportType" label="Report Type">
                 <Select onChange={(value) => setReportType(value)}>
                   <Option value="sales">
                     <Space>
@@ -311,9 +683,72 @@ function Reports() {
                 label="Date Range"
                 rules={[
                   { required: true, message: "Please select date range" },
+                  {
+                    validator: (_, value) => {
+                      if (
+                        !value ||
+                        !Array.isArray(value) ||
+                        value.length !== 2
+                      ) {
+                        return Promise.reject(
+                          "Please select a valid date range"
+                        );
+                      }
+
+                      const [startDate, endDate] = value;
+
+                      if (
+                        !dayjs.isDayjs(startDate) ||
+                        !dayjs.isDayjs(endDate)
+                      ) {
+                        return Promise.reject("Invalid date format");
+                      }
+
+                      if (!startDate.isValid() || !endDate.isValid()) {
+                        return Promise.reject("Invalid date range selected");
+                      }
+
+                      if (endDate.isBefore(startDate)) {
+                        return Promise.reject(
+                          "End date must be after start date"
+                        );
+                      }
+
+                      return Promise.resolve();
+                    },
+                  },
                 ]}
               >
-                <RangePicker style={{ width: "100%" }} />
+                <Space direction="vertical" style={{ width: "100%" }}>
+                  <Radio.Group
+                    value={dateFilter}
+                    onChange={handleDateFilterChange}
+                    buttonStyle="solid"
+                  >
+                    <Radio.Button value="today">Today</Radio.Button>
+                    <Radio.Button value="week">This Week</Radio.Button>
+                    <Radio.Button value="month">This Month</Radio.Button>
+                    <Radio.Button value="custom">Custom Range</Radio.Button>
+                  </Radio.Group>
+                  <RangePicker
+                    style={{ width: "100%" }}
+                    format="YYYY-MM-DD"
+                    disabled={dateFilter !== "custom"}
+                    onChange={(dates) => {
+                      if (dates) {
+                        setDateFilter("custom");
+                        form.setFieldsValue({ dateRange: dates });
+                        handleGenerateReport({
+                          ...form.getFieldsValue(),
+                          dateRange: dates,
+                        });
+                      }
+                    }}
+                    getValueProps={(value) => ({
+                      value: value ? dayjs(value) : null,
+                    })}
+                  />
+                </Space>
               </Form.Item>
             </Col>
             <Col xs={24} md={4}>
@@ -346,7 +781,7 @@ function Reports() {
         <div style={{ textAlign: "center", padding: "50px" }}>
           <Spin size="large" />
           <Text style={{ display: "block", marginTop: "16px" }}>
-            Generating report...
+            {reportData ? "Updating report..." : "Loading initial data..."}
           </Text>
         </div>
       ) : (

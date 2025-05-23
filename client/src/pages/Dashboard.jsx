@@ -36,7 +36,7 @@ import {
   FileTextOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
-import { Line } from "@ant-design/plots";
+import { Column } from "@ant-design/plots";
 import { reportsAPI, ordersAPI } from "../services/api";
 import { useNavigate } from "react-router-dom";
 
@@ -65,6 +65,10 @@ const Dashboard = () => {
   const [selectedStaff, setSelectedStaff] = useState("all");
   const navigate = useNavigate();
 
+  console.log("selectedStaff", selectedStaff);
+  console.log("staffStats", staffStats);
+
+
   // Determine if we're on mobile
   const isMobile = !screens.md;
   const isTablet = screens.md && !screens.lg;
@@ -73,85 +77,180 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const [statsResponse, recentOrdersResponse, salesResponse] =
-          await Promise.all([
-            reportsAPI.getSalesReport(),
-            reportsAPI.getRecentOrders(),
-            reportsAPI.getSalesAnalytics({ period: "weekly" }),
-          ]);
+        setError(null);
 
-        setStats(statsResponse.data.summary);
-        setRecentOrders(recentOrdersResponse.data.recentOrders || []);
-        setSalesData(salesResponse.data.analytics || []);
+        // Check for token
+        const token = localStorage.getItem("token");
+        if (!token) {
+          throw new Error("No authentication token found");
+        }
 
-        // Fetch orders and calculate popular meals and staff stats
-        const allOrdersResponse = await ordersAPI.getAll();
-        const orders = allOrdersResponse.data;
+        // Fetch data with individual error handling
+        const [
+          statsResponse,
+          recentOrdersResponse,
+          salesResponse,
+          popularMealsResponse,
+        ] = await Promise.all([
+          reportsAPI.getSalesReport().catch((error) => {
+            console.error("Error fetching sales report:", error);
+            return {
+              data: {
+                summary: {},
+                dailySales: [],
+                tableData: [],
+                columns: [],
+              },
+            };
+          }),
+          reportsAPI.getRecentOrders().catch((error) => {
+            console.error("Error fetching recent orders:", error);
+            return { data: [] };
+          }),
+          reportsAPI.getSalesAnalytics({ period: "weekly" }).catch((error) => {
+            console.error("Error fetching sales analytics:", error);
+            return { data: { analytics: [], summary: {} } };
+          }),
+          reportsAPI.getPopularMeals().catch((error) => {
+            console.error("Error fetching popular meals:", error);
+            return { data: { popularMeals: [], summary: {} } };
+          }),
+        ]);
 
-        // Calculate popular meals
-        const mealCounts = {};
-        // Calculate staff stats
-        const staffOrderCounts = {};
-        const staffRevenue = {};
-        const staffCustomers = {};
+        console.log("Dashboard API Responses:", {
+          stats: statsResponse,
+          recentOrders: recentOrdersResponse,
+          sales: salesResponse,
+          popularMeals: popularMealsResponse,
+        });
 
-        orders.forEach((order) => {
-          // Track staff stats
-          const staffId = order.staffId?._id || order.staffId || "unknown";
-          if (!staffOrderCounts[staffId]) {
-            staffOrderCounts[staffId] = 0;
-            staffRevenue[staffId] = 0;
-            staffCustomers[staffId] = new Set();
-          }
-          staffOrderCounts[staffId]++;
-          staffRevenue[staffId] += order.total || 0;
-          if (order.customer) {
-            staffCustomers[staffId].add(order.customer);
-          }
-
-          // Calculate popular meals
-          order.items?.forEach((item) => {
-            if (item.mealId) {
-              const mealId = item.mealId._id || item.mealId;
-              if (!mealCounts[mealId]) {
-                mealCounts[mealId] = {
-                  name: item.mealId.name,
-                  count: 0,
-                  image: item.mealId.images?.[0]?.url,
-                  price: item.mealId.price,
-                  category: item.mealId.category,
-                };
-              }
-              mealCounts[mealId].count += item.quantity || 1;
-            }
+        // Set stats with null check
+        if (statsResponse?.data?.summary) {
+          const summary = statsResponse.data.summary;
+          setStats({
+            totalRevenue: summary.totalSales || 0,
+            totalOrders: summary.totalOrders || 0,
+            averageOrderValue: summary.averageOrderValue || 0,
+            customerCount: summary.totalCustomers || 0,
+            todayOrders: summary.todayOrders || 0,
+            todayRevenue: summary.todayRevenue || 0,
+            revenueChange: summary.revenueChange || 0,
+            ordersChange: summary.ordersChange || 0,
           });
+        } else {
+          setStats({
+            totalRevenue: 0,
+            totalOrders: 0,
+            averageOrderValue: 0,
+            customerCount: 0,
+            todayOrders: 0,
+            todayRevenue: 0,
+            revenueChange: 0,
+            ordersChange: 0,
+          });
+        }
+
+        // Set recent orders with null check and error handling
+        try {
+          if (recentOrdersResponse?.data) {
+            setRecentOrders(
+              Array.isArray(recentOrdersResponse.data)
+                ? recentOrdersResponse.data
+                : []
+            );
+          } else {
+            setRecentOrders([]);
+          }
+        } catch (error) {
+          console.error("Error processing recent orders:", error);
+          setRecentOrders([]);
+        }
+
+        // Set sales data with null check
+        if (salesResponse?.data?.analytics) {
+          setSalesData(salesResponse.data.analytics);
+        } else if (statsResponse?.data?.dailySales) {
+          // Fallback to dailySales from stats if analytics is not available
+          setSalesData(
+            statsResponse.data.dailySales.map((item) => ({
+              date: item.date,
+              sales: item.amount,
+              orders: item.orders,
+            }))
+          );
+        } else {
+          setSalesData([]);
+        }
+
+        // Set popular meals with null check
+        if (popularMealsResponse?.data?.popularMeals) {
+          setPopularMeals(popularMealsResponse.data.popularMeals);
+        } else {
+          setPopularMeals([]);
+        }
+
+        // Fetch all orders for popular meals and staff stats
+        try {
+          const ordersResponse = await ordersAPI.getAll();
+          const orders = ordersResponse?.data || [];
+
+          console.log("orders", orders);  
+
+          if (Array.isArray(orders)) {
+            // Calculate staff statistics
+            const staffStats = {};
+            orders.forEach((order) => {
+              if (order.staffId && order.staffId.name) {
+                if (!staffStats[order.staffId.name]) {
+                  staffStats[order.staffId.name] = {
+                    orderCount: 0,
+                    revenue: 0,
+                    customers: new Set(),
+                  };
+                }
+                staffStats[order.staffId.name].orderCount++;
+                staffStats[order.staffId.name].revenue += order.total || 0;
+                if (order.customerName) {
+                  staffStats[order.staffId.name].customers.add(order.customerName);
+                }
+              }
+            });
+
+            const formattedStaffStats = Object.entries(staffStats).map(
+              ([name, stats]) => ({
+                name,
+                orderCount: stats.orderCount,
+                revenue: stats.revenue,
+                customerCount: stats.customers.size,
+                averageOrderValue: stats.orderCount > 0 ? stats.revenue / stats.orderCount : 0
+              })
+            );
+
+            console.log("Formatted staff stats:", formattedStaffStats);
+            setStaffStats(formattedStaffStats);
+          }
+        } catch (error) {
+          console.error("Error fetching orders:", error);
+          setStaffStats([]);
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        setError(error.message || "Failed to fetch dashboard data");
+        // Initialize with empty data
+        setStats({
+          totalRevenue: 0,
+          totalOrders: 0,
+          averageOrderValue: 0,
+          customerCount: 0,
+          todayOrders: 0,
+          todayRevenue: 0,
+          revenueChange: 0,
+          ordersChange: 0,
         });
-
-        // Calculate staff statistics
-        const staffStatsData = {};
-        Object.keys(staffOrderCounts).forEach((staffId) => {
-          const staff = orders.find(
-            (o) => (o.staffId?._id || o.staffId) === staffId
-          )?.staffId;
-          staffStatsData[staffId] = {
-            name: staff?.name || "Unknown Staff",
-            totalOrders: staffOrderCounts[staffId],
-            totalRevenue: staffRevenue[staffId],
-            uniqueCustomers: staffCustomers[staffId].size,
-            averageOrderValue:
-              staffRevenue[staffId] / staffOrderCounts[staffId],
-          };
-        });
-
-        setStaffStats(staffStatsData);
-
-        const popular = Object.values(mealCounts)
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5);
-
-        setPopularMeals(popular);
-      } catch (err) {
-        setError(err.message);
+        setRecentOrders([]);
+        setSalesData([]);
+        setPopularMeals([]);
+        setStaffStats([]);
       } finally {
         setLoading(false);
       }
@@ -274,15 +373,77 @@ const Dashboard = () => {
   const salesConfig = {
     data: salesData,
     xField: "date",
-    yField: "amount",
-    seriesField: "type",
-    smooth: true,
-    animation: {
-      appear: {
-        animation: "path-in",
-        duration: 1000,
+    yField: "sales",
+    color: "#1890ff",
+    columnStyle: {
+      radius: [4, 4, 0, 0],
+    },
+    label: {
+      position: "top",
+      style: {
+        fill: "#8c8c8c",
       },
     },
+    xAxis: {
+      label: {
+        style: {
+          fill: "#8c8c8c",
+        },
+      },
+    },
+    yAxis: {
+      title: {
+        text: "Revenue (KES)",
+        style: {
+          fill: "#8c8c8c",
+        },
+      },
+      label: {
+        formatter: (v) => `KES ${v}`,
+        style: {
+          fill: "#8c8c8c",
+        },
+      },
+    },
+    tooltip: {
+      formatter: (datum) => {
+        return {
+          name: "Revenue",
+          value: `KES ${datum.sales}`,
+        };
+      },
+    },
+    interactions: [
+      {
+        type: "marker-active",
+      },
+    ],
+  };
+
+  // Add debug render for sales data
+  const renderSalesChart = () => {
+    console.log("Current salesData:", salesData);
+
+    if (!salesData || !Array.isArray(salesData) || salesData.length === 0) {
+      return (
+        <Empty
+          description="No sales data available"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        />
+      );
+    }
+
+    // Transform data if needed
+    const transformedData = salesData.map((item) => ({
+      date: item.date || item.key || new Date().toISOString().split("T")[0],
+      sales: Number(
+        item.sales || item.amount || item.total || item.revenue || 0
+      ),
+    }));
+
+    console.log("Transformed data:", transformedData);
+
+    return <Column {...salesConfig} data={transformedData} />;
   };
 
   // Stat card component with responsive design
@@ -412,22 +573,22 @@ const Dashboard = () => {
     },
     {
       title: "Total Orders",
-      dataIndex: "totalOrders",
-      key: "totalOrders",
-      sorter: (a, b) => a.totalOrders - b.totalOrders,
+      dataIndex: "orderCount",
+      key: "orderCount",
+      sorter: (a, b) => a.orderCount - b.orderCount,
     },
     {
       title: "Total Revenue",
-      dataIndex: "totalRevenue",
-      key: "totalRevenue",
+      dataIndex: "revenue",
+      key: "revenue",
       render: (value) => `KES ${value.toFixed(2)}`,
-      sorter: (a, b) => a.totalRevenue - b.totalRevenue,
+      sorter: (a, b) => a.revenue - b.revenue,
     },
     {
       title: "Unique Customers",
-      dataIndex: "uniqueCustomers",
-      key: "uniqueCustomers",
-      sorter: (a, b) => a.uniqueCustomers - b.uniqueCustomers,
+      dataIndex: "customerCount",
+      key: "customerCount",
+      sorter: (a, b) => a.customerCount - b.customerCount,
     },
     {
       title: "Avg. Order Value",
@@ -635,17 +796,11 @@ const Dashboard = () => {
             }
             bodyStyle={{ padding: isMobile ? "12px" : "16px" }}
           >
-            {salesData.length === 0 ? (
-              <Empty
-                description="No sales data available"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            ) : (
-              <Line {...salesConfig} />
-            )}
+            {renderSalesChart()}
           </Card>
         </Col>
 
+        {/* Popular Meals Card */}
         <Col xs={24} lg={8}>
           <Card
             title={
@@ -678,7 +833,7 @@ const Dashboard = () => {
                       title={
                         <Space>
                           <span>{meal.name}</span>
-                          <Tag color="red">{meal.count} orders</Tag>
+                          <Tag color="red">{meal.quantity} orders</Tag>
                         </Space>
                       }
                       description={

@@ -17,12 +17,17 @@ const orderSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["pending", "preparing", "ready", "completed", "cancelled"],
-      default: "pending",
+      default: "completed",
     },
     staffId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Staff",
       required: true,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["cash", "card", "mobile"],
+      default: "cash",
     },
   },
   { timestamps: true }

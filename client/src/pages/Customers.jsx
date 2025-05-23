@@ -25,6 +25,7 @@ import {
 } from "@ant-design/icons";
 import { useSelector, useDispatch } from "react-redux";
 import { ordersAPI } from "../services/api";
+import { useNotification } from "../context/NotificationContext";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -36,6 +37,7 @@ const Customers = () => {
   const [dateRange, setDateRange] = useState(null);
   const [orders, setOrders] = useState([]);
   const [popularMeals, setPopularMeals] = useState([]);
+  const { addNotification } = useNotification();
 
   useEffect(() => {
     fetchOrders();
@@ -46,27 +48,40 @@ const Customers = () => {
       setLoading(true);
       const response = await ordersAPI.getAll();
       console.log("Fetched orders response:", response);
-      setOrders(response.data);
-      calculatePopularMeals(response.data);
+
+      if (response?.data) {
+        setOrders(response.data);
+        calculatePopularMeals(response.data);
+      } else {
+        setOrders([]);
+        setPopularMeals([]);
+      }
     } catch (err) {
       console.error("Error fetching orders:", err);
       setError(err.message || "Failed to fetch orders");
+      setOrders([]);
+      setPopularMeals([]);
     } finally {
       setLoading(false);
     }
   };
 
   const calculatePopularMeals = (ordersData) => {
+    if (!Array.isArray(ordersData)) {
+      console.log("No valid orders data to calculate popular meals");
+      setPopularMeals([]);
+      return;
+    }
+
     console.log("Calculating popular meals from orders:", ordersData);
     const mealCounts = {};
 
     ordersData.forEach((order) => {
-      console.log("Processing order:", order);
-      order.items?.forEach((item) => {
-        console.log("Processing item:", item);
-        if (item.mealId) {
+      if (!order?.items) return;
+
+      order.items.forEach((item) => {
+        if (item?.mealId) {
           const mealId = item.mealId._id || item.mealId;
-          console.log("Found meal:", item.mealId);
           if (!mealCounts[mealId]) {
             mealCounts[mealId] = {
               name: item.mealId.name,
@@ -81,12 +96,10 @@ const Customers = () => {
       });
     });
 
-    console.log("Meal counts:", mealCounts);
     const popular = Object.values(mealCounts)
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    console.log("Popular meals:", popular);
     setPopularMeals(popular);
   };
 
@@ -199,6 +212,81 @@ const Customers = () => {
       ),
     },
   ];
+
+  const handleAddCustomer = async (values) => {
+    try {
+      const response = await customersAPI.createCustomer(values);
+      if (response.success) {
+        addNotification(
+          "success",
+          "Customer Added",
+          `${values.name} has been added to the customer list`,
+          "customers"
+        );
+        form.resetFields();
+        fetchCustomers();
+      }
+    } catch (error) {
+      addNotification(
+        "error",
+        "Failed to Add Customer",
+        error.response?.data?.message ||
+          "Failed to add customer. Please try again.",
+        "customers"
+      );
+    }
+  };
+
+  const handleUpdateCustomer = async (values) => {
+    try {
+      const response = await customersAPI.updateCustomer(
+        selectedCustomer._id,
+        values
+      );
+      if (response.success) {
+        addNotification(
+          "success",
+          "Customer Updated",
+          `${values.name}'s information has been updated successfully`,
+          "customers"
+        );
+        setSelectedCustomer(null);
+        form.resetFields();
+        fetchCustomers();
+      }
+    } catch (error) {
+      addNotification(
+        "error",
+        "Update Failed",
+        error.response?.data?.message ||
+          "Failed to update customer information. Please try again.",
+        "customers"
+      );
+    }
+  };
+
+  const handleDeleteCustomer = async (customerId) => {
+    try {
+      const response = await customersAPI.deleteCustomer(customerId);
+      if (response.success) {
+        addNotification(
+          "success",
+          "Customer Removed",
+          "The customer has been removed successfully",
+          "customers"
+        );
+        fetchCustomers();
+      }
+    } catch (error) {
+      addNotification(
+        "error",
+        "Deletion Failed",
+        error.response?.data?.message ||
+          "Failed to remove customer. Please try again.",
+        "customers"
+      );
+    }
+  };
 
   if (loading) {
     return (

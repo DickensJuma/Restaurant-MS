@@ -13,5 +13,6 @@ router.get("/peak-hours", reportController.getPeakHours);
 router.get("/popular-meals", reportController.getPopularMeals);
 router.get("/sales-analytics", reportController.getSalesAnalytics);
 router.get("/recent-orders", reportController.getRecentOrders);
+router.get("/performance-stats", reportController.getPerformanceStats);
 
 module.exports = router;

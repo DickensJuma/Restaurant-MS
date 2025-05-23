@@ -1,69 +1,100 @@
 import React, { useState, useEffect } from "react";
 import {
-  Table,
   Card,
   Button,
-  Modal,
+  Drawer,
   Form,
   Input,
   Select,
   Space,
   message,
-  Popconfirm,
-  Tag,
-  Spin,
-  InputNumber,
   Typography,
   Row,
   Col,
-  Drawer,
-  Alert,
+  InputNumber,
+  Divider,
+  Badge,
   Avatar,
-  Tooltip,
+  Tag,
+  Spin,
   Empty,
+  Radio,
+  Alert,
+  Tooltip,
+  notification,
+  Table,
+  DatePicker,
+  Statistic,
+  Descriptions,
 } from "antd";
 import {
-  UserAddOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  PlusOutlined,
   ShoppingCartOutlined,
-  MinusCircleOutlined,
+  PlusOutlined,
+  MinusOutlined,
+  DeleteOutlined,
+  UserOutlined,
+  CheckOutlined,
+  MobileOutlined,
+  BankOutlined,
+  InfoCircleOutlined,
+  WalletOutlined,
+  BellOutlined,
+  ShoppingOutlined,
+  DollarOutlined,
 } from "@ant-design/icons";
 import { ordersAPI, mealsAPI, staffAPI } from "../services/api";
 import { useWindowSize } from "../hooks/useWindowSize";
+import { useNotification } from "../context/NotificationContext";
 
-const { Option } = Select;
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 const Orders = () => {
-  const [orders, setOrders] = useState([]);
+  const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [cartItems, setCartItems] = useState([]);
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
-  const [editingOrder, setEditingOrder] = useState(null);
   const [form] = Form.useForm();
   const { width: windowWidth } = useWindowSize();
-  const [meals, setMeals] = useState([]);
   const [staff, setStaff] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [paymentMethod, setPaymentMethod] = useState("mobile");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { addNotification } = useNotification();
+  const [orders, setOrders] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [dateRange, setDateRange] = useState([null, null]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case "completed":
+        return "success";
+      case "pending":
+        return "warning";
+      case "cancelled":
+        return "error";
+      default:
+        return "default";
+    }
+  };
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      // Fetch meals, orders, and staff concurrently
-      const [mealsResponse, ordersResponse, staffResponse] = await Promise.all([
+      const [mealsResponse, staffResponse, ordersResponse] = await Promise.all([
         mealsAPI.getAll(),
-        ordersAPI.getAll(),
         staffAPI.getAll(),
+        ordersAPI.getAll(),
       ]);
 
-      setMeals(mealsResponse.data);
-      setOrders(ordersResponse.data);
-      setStaff(staffResponse.data);
+      setMeals(mealsResponse.data || mealsResponse);
+      setStaff(staffResponse.data || staffResponse);
+      setOrders(ordersResponse.data || ordersResponse);
     } catch (error) {
       console.error("Failed to fetch data:", error);
       message.error("Failed to fetch data");
@@ -72,184 +103,234 @@ const Orders = () => {
     }
   };
 
-  const handleEditOrder = (record) => {
-    setEditingOrder(record);
-    form.setFieldsValue({
-      ...record,
-      items: record.items.map((item) => ({
-        mealId: item.mealId._id || item.mealId,
-        quantity: item.quantity,
-      })),
+  const showOrderNotification = (type, title, description) => {
+    notification[type]({
+      message: title,
+      description: description,
+      placement: "topRight",
+      duration: 4.5,
+      icon: (
+        <BellOutlined
+          style={{ color: type === "success" ? "#52c41a" : "#ff4d4f" }}
+        />
+      ),
     });
-    windowWidth < 768 ? setIsDrawerVisible(true) : setIsModalVisible(true);
   };
 
-  const handleDeleteOrder = async (id) => {
-    try {
-      await ordersAPI.delete(id);
-      message.success("Order deleted successfully");
-      fetchData();
-    } catch {
-      message.error("Failed to delete order");
+  const addToCart = (meal) => {
+    setCartItems((prevItems) => {
+      const existingItem = prevItems.find((item) => item.mealId === meal._id);
+      if (existingItem) {
+        showOrderNotification(
+          "success",
+          "Item Updated",
+          `${meal.name} quantity updated to ${existingItem.quantity + 1}`
+        );
+        return prevItems.map((item) =>
+          item.mealId === meal._id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      showOrderNotification(
+        "success",
+        "Item Added",
+        `${meal.name} added to cart`
+      );
+      return [...prevItems, { mealId: meal._id, quantity: 1, meal }];
+    });
+    setIsDrawerVisible(true);
+  };
+
+  const removeFromCart = (mealId) => {
+    const item = cartItems.find((item) => item.mealId === mealId);
+    if (item) {
+      showOrderNotification(
+        "info",
+        "Item Removed",
+        `${item.meal.name} removed from cart`
+      );
     }
+    setCartItems((prevItems) =>
+      prevItems.filter((item) => item.mealId !== mealId)
+    );
+  };
+
+  const updateQuantity = (mealId, quantity) => {
+    if (quantity < 1) {
+      removeFromCart(mealId);
+      return;
+    }
+    const item = cartItems.find((item) => item.mealId === mealId);
+    if (item) {
+      showOrderNotification(
+        "success",
+        "Quantity Updated",
+        `${item.meal.name} quantity updated to ${quantity}`
+      );
+    }
+    setCartItems((prevItems) =>
+      prevItems.map((item) =>
+        item.mealId === mealId ? { ...item, quantity } : item
+      )
+    );
+  };
+
+  const calculateTotal = () => {
+    return cartItems.reduce(
+      (sum, item) => sum + (item.meal?.price || 0) * item.quantity,
+      0
+    );
   };
 
   const handleSubmit = async (values) => {
+    if (cartItems.length === 0) {
+      addNotification(
+        "error",
+        "Cart Empty",
+        "Please add items to cart",
+        "orders"
+      );
+      return;
+    }
+
     try {
-      console.log("Form values:", values);
-      console.log("Available meals:", meals);
-
-      // Calculate total amount
-      const total =
-        values.items?.reduce((sum, item) => {
-          console.log("Processing item:", item);
-          const meal = meals.find((m) => m._id === item.mealId);
-          console.log("Found meal:", meal);
-
-          if (!meal) {
-            console.error("Meal not found:", item.mealId);
-            return sum;
-          }
-          return sum + (meal.price || 0) * (item.quantity || 0);
-        }, 0) || 0;
-
-      console.log("Calculated total:", total);
-
-      // Ensure items have the correct structure
-      const orderItems = values.items.map((item) => {
-        console.log("Processing order item:", item);
-        if (!item.mealId) {
-          throw new Error("Meal ID is required for each item");
-        }
-        return {
-          mealId: item.mealId,
-          quantity: item.quantity,
-        };
-      });
-
+      setIsProcessing(true);
       const orderData = {
         customerName: values.customerName,
+        items: cartItems.map((item) => ({
+          mealId: item.mealId,
+          quantity: item.quantity,
+        })),
+        total: calculateTotal(),
+        status: "completed",
+        paymentMethod: values.paymentMethod,
         staffId: values.staffId,
-        items: orderItems,
-        status: values.status,
-        total,
       };
 
-      console.log("Order data to be sent:", orderData);
+      console.log("Submitting order:", orderData);
+      const response = await ordersAPI.create(orderData);
+      console.log("Order creation response:", response.data);
 
-      if (editingOrder) {
-        await ordersAPI.update(editingOrder._id, orderData);
-        message.success("Order updated successfully");
+      if (response.data.success && response.data.data) {
+        addNotification(
+          "success",
+          "Order Created",
+          "Order has been created successfully",
+          "orders"
+        );
+        setOrders((prev) => [...prev, response.data.data]);
+        form.resetFields();
+        setCartItems([]);
+        setIsDrawerVisible(false);
       } else {
-        const response = await ordersAPI.create(orderData);
-        console.log("Order creation response:", response);
-        message.success("Order created successfully");
+        throw new Error(response.message || "Failed to create order");
       }
-
-      setIsModalVisible(false);
-      setIsDrawerVisible(false);
-      setEditingOrder(null);
-      form.resetFields();
-      fetchData();
     } catch (error) {
-      console.error("Failed to save order:", error);
-      console.error("Error details:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-      });
-      message.error(error.message || "Failed to save order");
+      console.error("Order creation error:", error);
+      addNotification(
+        "error",
+        "Order Failed",
+        error.message || "Failed to create order",
+        "orders"
+      );
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const renderOrderItems = (items) => {
-    if (!items || items.length === 0) {
-      return <Empty description="No items" size="small" />;
+  const categories = ["all", ...new Set(meals.map((meal) => meal.category))];
+
+  const filteredMeals =
+    selectedCategory === "all"
+      ? meals
+      : meals.filter((meal) => meal.category === selectedCategory);
+
+  const renderMenuItems = () => {
+    if (loading) {
+      return (
+        <div style={{ textAlign: "center", padding: "40px" }}>
+          <Spin size="large" />
+        </div>
+      );
+    }
+
+    if (filteredMeals.length === 0) {
+      return (
+        <Empty description="No meals available" style={{ margin: "40px 0" }} />
+      );
     }
 
     return (
-      <div style={{ maxWidth: "300px" }}>
-        {items.map((item, index) => {
-          // Handle both nested meal object and meal ID
-          const meal =
-            item.mealId && typeof item.mealId === "object"
-              ? item.mealId
-              : meals.find((m) => m._id === (item.mealId || item.mealId));
-
-          if (!meal) {
-            console.log("Unknown meal:", item, "Available meals:", meals);
-            return (
-              <div
-                key={index}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginBottom: index < items.length - 1 ? "8px" : "0",
-                  padding: "4px",
-                  backgroundColor: "#f5f5f5",
-                  borderRadius: "4px",
-                }}
-              >
-                <Avatar size={40} icon={<ShoppingCartOutlined />} />
-                <div style={{ flex: 1 }}>
-                  <Text type="secondary">Unknown Item</Text>
-                  <div style={{ fontSize: "12px", color: "#999" }}>
-                    Qty: {item.quantity || 0}
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          const mealImage =
-            Array.isArray(meal.images) && meal.images.length > 0
-              ? meal.images[0].url.startsWith("http")
-                ? meal.images[0].url
-                : `${import.meta.env.VITE_API_URL || ""}${meal.images[0].url}`
-              : null;
-
-          return (
-            <div
-              key={index}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                marginBottom: index < items.length - 1 ? "8px" : "0",
-                padding: "4px",
-              }}
-            >
-              <Avatar size={40} src={mealImage} style={{ flexShrink: 0 }}>
-                {meal.name?.charAt(0)?.toUpperCase()}
-              </Avatar>
-              <div style={{ flex: 1, minWidth: 0 }}>
+      <Row gutter={[16, 16]}>
+        {filteredMeals.map((meal) => (
+          <Col xs={24} sm={12} md={8} lg={6} key={meal._id}>
+            <Card
+              hoverable
+              cover={
                 <div
                   style={{
-                    fontWeight: "500",
-                    fontSize: "13px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    height: 200,
+                    backgroundImage: `url(${
+                      meal.images?.[0]?.url || "https://via.placeholder.com/300"
+                    })`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
                   }}
-                >
-                  {meal.name}
-                </div>
-                <div
-                  style={{ fontSize: "11px", color: "#666", lineHeight: 1.2 }}
-                >
-                  {item.quantity} × KES {meal.price?.toFixed(2)} = KES{" "}
-                  {((meal.price || 0) * (item.quantity || 0)).toFixed(2)}
-                </div>
-                <div style={{ fontSize: "10px", color: "#999" }}>
-                  {meal.category}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                />
+              }
+              actions={[
+                <Space>
+                  <Button
+                    size="small"
+                    icon={<MinusOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const existingItem = cartItems.find(
+                        (item) => item.mealId === meal._id
+                      );
+                      if (existingItem) {
+                        updateQuantity(meal._id, existingItem.quantity - 1);
+                      }
+                    }}
+                  />
+                  <Text>
+                    {cartItems.find((item) => item.mealId === meal._id)
+                      ?.quantity || 0}
+                  </Text>
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addToCart(meal);
+                    }}
+                  />
+                </Space>,
+              ]}
+            >
+              <Card.Meta
+                title={meal.name}
+                description={
+                  <Space direction="vertical" size={0}>
+                    <Text type="secondary">{meal.description}</Text>
+                    <Text strong style={{ color: "#52c41a" }}>
+                      KES {meal.price?.toFixed(2)}
+                    </Text>
+                    <Tag color="blue">{meal.category}</Tag>
+                  </Space>
+                }
+              />
+            </Card>
+          </Col>
+        ))}
+      </Row>
     );
+  };
+
+  const handleDateRangeChange = (dates) => {
+    setDateRange(dates);
   };
 
   const columns = [
@@ -257,403 +338,447 @@ const Orders = () => {
       title: "Order ID",
       dataIndex: "_id",
       key: "_id",
-      render: (id) => (
-        <Text code style={{ fontSize: "11px" }}>
-          {id?.slice(-6) || "N/A"}
-        </Text>
-      ),
-      width: windowWidth < 768 ? 80 : 100,
-      responsive: ["sm"],
     },
     {
       title: "Customer",
       dataIndex: "customerName",
       key: "customerName",
-      render: (name) => (
-        <div style={{ minWidth: 0 }}>
-          <Text strong style={{ fontSize: "13px" }}>
-            {name || "Walk-in Customer"}
-          </Text>
-        </div>
-      ),
-      width: windowWidth < 768 ? 120 : 150,
-      ellipsis: true,
-    },
-    {
-      title: "Staff",
-      dataIndex: "staffId",
-      key: "staffId",
-      render: (staff) => (
-        <div style={{ minWidth: 0 }}>
-          <Text style={{ fontSize: "13px" }}>
-            {staff?.name || "Unknown Staff"}
-          </Text>
-        </div>
-      ),
-      width: windowWidth < 768 ? 120 : 150,
-      ellipsis: true,
-    },
-    {
-      title: "Items",
-      dataIndex: "items",
-      key: "items",
-      render: renderOrderItems,
-      width: windowWidth < 768 ? 250 : 320,
-    },
-    {
-      title: "Total",
-      dataIndex: "total",
-      key: "total",
-      render: (amount) => (
-        <Text strong style={{ color: "#52c41a", fontSize: "13px" }}>
-          KES {(amount || 0).toFixed(2)}
-        </Text>
-      ),
-      width: windowWidth < 768 ? 80 : 100,
-      align: "right",
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status) => {
-        const statusConfig = {
-          completed: { color: "success", text: "COMPLETED" },
-          pending: { color: "warning", text: "PENDING" },
-          preparing: { color: "processing", text: "PREPARING" },
-          ready: { color: "cyan", text: "READY" },
-          cancelled: { color: "error", text: "CANCELLED" },
-        };
-
-        const config = statusConfig[status] || {
-          color: "default",
-          text: "UNKNOWN",
-        };
-
-        return (
-          <Tag color={config.color} style={{ fontSize: "10px", margin: 0 }}>
-            {config.text}
-          </Tag>
-        );
-      },
-      width: windowWidth < 768 ? 80 : 100,
-      filters: [
-        { text: "Pending", value: "pending" },
-        { text: "Preparing", value: "preparing" },
-        { text: "Ready", value: "ready" },
-        { text: "Completed", value: "completed" },
-        { text: "Cancelled", value: "cancelled" },
-      ],
-      onFilter: (value, record) => record.status === value,
     },
     {
       title: "Date",
       dataIndex: "createdAt",
       key: "createdAt",
-      render: (date) =>
-        date ? (
-          <Text style={{ fontSize: "11px" }}>
-            {new Date(date).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "2-digit",
-            })}
-          </Text>
-        ) : (
-          "N/A"
-        ),
-      width: windowWidth < 768 ? 70 : 100,
-      responsive: ["md"],
-      sorter: (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
+      render: (text) => new Date(text).toLocaleString(),
     },
     {
-      title: "Actions",
-      key: "actions",
-      fixed: windowWidth >= 768 ? "right" : false,
-      width: windowWidth < 768 ? 120 : 140,
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="Edit order">
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleEditOrder(record)}
-            />
-          </Tooltip>
-          <Popconfirm
-            title="Delete order?"
-            description="This action cannot be undone."
-            onConfirm={() => handleDeleteOrder(record._id)}
-            okText="Delete"
-            cancelText="Cancel"
-            okButtonProps={{ danger: true }}
-          >
-            <Tooltip title="Delete order">
-              <Button size="small" danger icon={<DeleteOutlined />} />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status) => (
+        <Tag color={getStatusColor(status)}>{status?.toUpperCase()}</Tag>
       ),
+    },
+    {
+      title: "Total",
+      dataIndex: "total",
+      key: "total",
+      render: (total) => `KES ${total.toLocaleString()}`,
     },
   ];
 
-  const OrderForm = () => (
-    <Form
-      form={form}
-      layout="vertical"
-      onFinish={handleSubmit}
-      initialValues={{
-        status: "pending",
-        items: [{ mealId: undefined, quantity: 1 }],
-      }}
-    >
-      <Form.Item
-        name="customerName"
-        label="Customer Name"
-        rules={[{ required: true, message: "Please enter customer name!" }]}
-      >
-        <Input size="large" placeholder="Enter customer name" />
-      </Form.Item>
+  const itemColumns = [
+    {
+      title: "Meal",
+      dataIndex: "meal",
+      key: "meal",
+      render: (meal) => (
+        <Space>
+          <Avatar size={40} src={meal?.images?.[0]?.url} />
+          <span>{meal?.name}</span>
+        </Space>
+      ),
+    },
+    {
+      title: "Quantity",
+      dataIndex: "quantity",
+      key: "quantity",
+    },
+    {
+      title: "Price",
+      dataIndex: "meal",
+      key: "price",
+      render: (meal) => `KES ${meal?.price?.toFixed(2)}`,
+    },
+  ];
 
-      <Form.Item
-        name="staffId"
-        label="Staff Member"
-        rules={[{ required: true, message: "Please select staff member!" }]}
-      >
-        <Select size="large" placeholder="Select staff member">
-          {staff.map((staffMember) => (
-            <Option key={staffMember._id} value={staffMember._id}>
-              {staffMember.name}
-            </Option>
-          ))}
-        </Select>
-      </Form.Item>
-
-      <Form.List name="items">
-        {(fields, { add, remove }) => (
-          <>
-            {fields.map(({ key, name, ...restField }) => (
-              <Space
-                key={key}
-                style={{ display: "flex", marginBottom: 8 }}
-                align="baseline"
-              >
-                <Form.Item
-                  {...restField}
-                  name={[name, "mealId"]}
-                  rules={[{ required: true, message: "Missing meal" }]}
-                >
-                  <Select
-                    style={{ width: 200 }}
-                    placeholder="Select meal"
-                    size="large"
-                  >
-                    {meals.map((meal) => (
-                      <Option key={meal._id} value={meal._id}>
-                        {meal.name}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-                <Form.Item
-                  {...restField}
-                  name={[name, "quantity"]}
-                  rules={[{ required: true, message: "Missing quantity" }]}
-                  initialValue={1}
-                >
-                  <InputNumber
-                    min={1}
-                    placeholder="Qty"
-                    size="large"
-                    style={{ width: 100 }}
-                  />
-                </Form.Item>
-                {fields.length > 1 && (
-                  <MinusCircleOutlined onClick={() => remove(name)} />
-                )}
-              </Space>
-            ))}
-            <Form.Item>
-              <Button
-                type="dashed"
-                onClick={() => add({ mealId: undefined, quantity: 1 })}
-                block
-                icon={<PlusOutlined />}
-                size="large"
-              >
-                Add Item
-              </Button>
-            </Form.Item>
-          </>
-        )}
-      </Form.List>
-
-      <Form.Item
-        name="status"
-        label="Order Status"
-        rules={[{ required: true, message: "Please select status!" }]}
-      >
-        <Select size="large">
-          <Option value="pending">Pending</Option>
-          <Option value="preparing">Preparing</Option>
-          <Option value="ready">Ready</Option>
-          <Option value="completed">Completed</Option>
-          <Option value="cancelled">Cancelled</Option>
-        </Select>
-      </Form.Item>
-
-      <Form.Item style={{ marginBottom: 0 }}>
-        <Space style={{ width: "100%", justifyContent: "flex-end" }}>
-          <Button
-            onClick={() => {
-              windowWidth < 768
-                ? setIsDrawerVisible(false)
-                : setIsModalVisible(false);
-              setEditingOrder(null);
-              form.resetFields();
-            }}
-            size="large"
-          >
-            Cancel
-          </Button>
+  const renderOrderList = () => (
+    <Card
+      title="Orders"
+      extra={
+        <Space>
+          <DatePicker.RangePicker
+            value={dateRange}
+            onChange={handleDateRangeChange}
+            allowClear={false}
+          />
           <Button
             type="primary"
-            htmlType="submit"
-            loading={loading}
-            size="large"
+            icon={<PlusOutlined />}
+            onClick={() => setIsModalVisible(true)}
           >
-            {editingOrder ? "Update" : "Create"} Order
+            New Order
           </Button>
         </Space>
-      </Form.Item>
-    </Form>
+      }
+    >
+      <Table
+        dataSource={
+          orders?.map((order) => ({
+            ...order,
+            key: order._id,
+          })) || []
+        }
+        loading={loading}
+        columns={columns}
+        pagination={{
+          total: orders?.length || 0,
+          pageSize: 10,
+          showSizeChanger: true,
+          showTotal: (total) => `Total ${total} orders`,
+        }}
+        scroll={{ x: true }}
+      />
+    </Card>
   );
 
-  if (loading) {
+  const renderOrderStats = () => (
+    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+      <Col xs={24} sm={12} md={6}>
+        <Card loading={loading}>
+          <Statistic
+            title="Total Orders"
+            value={orders?.length || 0}
+            prefix={<ShoppingOutlined />}
+          />
+        </Card>
+      </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Card loading={loading}>
+          <Statistic
+            title="Total Revenue"
+            value={
+              orders?.reduce((sum, order) => sum + (order?.total || 0), 0) || 0
+            }
+            prefix={<DollarOutlined />}
+            precision={2}
+            formatter={(value) => `KES ${value.toLocaleString()}`}
+          />
+        </Card>
+      </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Card loading={loading}>
+          <Statistic
+            title="Average Order Value"
+            value={
+              orders?.length
+                ? orders.reduce((sum, order) => sum + (order?.total || 0), 0) /
+                  orders.length
+                : 0
+            }
+            prefix={<DollarOutlined />}
+            precision={2}
+            formatter={(value) => `KES ${value.toLocaleString()}`}
+          />
+        </Card>
+      </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Card loading={loading}>
+          <Statistic
+            title="Unique Customers"
+            value={
+              new Set(
+                orders?.map((order) => order?.customerName).filter(Boolean) ||
+                  []
+              ).size
+            }
+            prefix={<UserOutlined />}
+          />
+        </Card>
+      </Col>
+    </Row>
+  );
+
+  const renderOrderDetails = () => {
+    if (!selectedOrder) return null;
+
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "400px",
-        }}
-      >
-        <Spin size="large" tip="Loading orders..." />
-      </div>
-    );
-  }
-
-  return (
-    <div
-      style={{
-        padding:
-          windowWidth < 768 ? "12px" : windowWidth < 1200 ? "16px" : "24px",
-        maxWidth: "100%",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: windowWidth < 768 ? "column" : "row",
-          justifyContent: "space-between",
-          alignItems: windowWidth < 768 ? "stretch" : "center",
-          gap: windowWidth < 768 ? "16px" : "0",
-          marginBottom: "24px",
-        }}
-      >
-        <Title
-          level={2}
-          style={{ margin: 0, fontSize: windowWidth < 768 ? "20px" : "24px" }}
-        >
-          Orders ({orders.length})
-        </Title>
-        <Button
-          type="primary"
-          icon={<UserAddOutlined />}
-          onClick={() => {
-            setEditingOrder(null);
-            form.resetFields();
-            form.setFieldsValue({ status: "pending" });
-            windowWidth < 768
-              ? setIsDrawerVisible(true)
-              : setIsModalVisible(true);
-          }}
-          style={{ width: windowWidth < 768 ? "100%" : "auto" }}
-          size="large"
-        >
-          New Order
-        </Button>
-      </div>
-
-      <Card bodyStyle={{ padding: windowWidth < 768 ? "12px" : "24px" }}>
-        <Table
-          columns={columns}
-          dataSource={orders}
-          rowKey="_id"
-          loading={loading}
-          scroll={{ x: windowWidth < 768 ? 800 : 1000 }}
-          pagination={{
-            responsive: true,
-            showSizeChanger: true,
-            showQuickJumper: windowWidth >= 768,
-            showTotal: (total, range) =>
-              `${range[0]}-${range[1]} of ${total} orders`,
-            pageSize: windowWidth < 768 ? 5 : 10,
-            pageSizeOptions: ["5", "10", "20", "50"],
-            size: windowWidth < 768 ? "small" : "default",
-          }}
-          size={windowWidth < 768 ? "small" : "middle"}
-        />
-      </Card>
-
-      <Modal
+      <Card
         title={
           <Space>
-            <UserAddOutlined />
-            {editingOrder ? "Edit Order" : "New Order"}
+            <ShoppingOutlined />
+            Order Details
           </Space>
         }
-        open={isModalVisible}
-        onCancel={() => {
-          setIsModalVisible(false);
-          setEditingOrder(null);
-          form.resetFields();
-        }}
-        footer={null}
-        width={windowWidth < 768 ? "95%" : windowWidth < 1200 ? "80%" : "900px"}
-        style={{ top: windowWidth < 768 ? 10 : 20 }}
-        bodyStyle={{
-          maxHeight: "calc(100vh - 200px)",
-          overflow: "auto",
-          padding: windowWidth < 768 ? "16px" : "24px",
-        }}
-        destroyOnClose
       >
-        <OrderForm />
-      </Modal>
+        <Descriptions bordered column={1}>
+          <Descriptions.Item label="Order ID">
+            {selectedOrder?._id}
+          </Descriptions.Item>
+          <Descriptions.Item label="Customer">
+            {selectedOrder?.customerName}
+          </Descriptions.Item>
+          <Descriptions.Item label="Date">
+            {selectedOrder?.createdAt
+              ? new Date(selectedOrder.createdAt).toLocaleString()
+              : "N/A"}
+          </Descriptions.Item>
+          <Descriptions.Item label="Status">
+            <Tag color={getStatusColor(selectedOrder?.status)}>
+              {selectedOrder?.status?.toUpperCase()}
+            </Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="Total">
+            KES {selectedOrder?.total?.toLocaleString()}
+          </Descriptions.Item>
+        </Descriptions>
+
+        <Divider orientation="left">Items</Divider>
+        <Table
+          dataSource={
+            selectedOrder?.items?.map((item) => ({
+              ...item,
+              key: item._id,
+            })) || []
+          }
+          columns={itemColumns}
+          pagination={false}
+        />
+      </Card>
+    );
+  };
+
+  return (
+    <div style={{ padding: windowWidth < 768 ? "12px" : "24px" }}>
+      <div style={{ marginBottom: "24px" }}>
+        <Title level={2}>Menu</Title>
+        <Space wrap style={{ marginBottom: "16px" }}>
+          {categories.map((category) => (
+            <Button
+              key={category}
+              type={selectedCategory === category ? "primary" : "default"}
+              onClick={() => setSelectedCategory(category)}
+            >
+              {category.toUpperCase()}
+            </Button>
+          ))}
+        </Space>
+      </div>
+
+      {renderMenuItems()}
 
       <Drawer
         title={
           <Space>
-            <UserAddOutlined />
-            {editingOrder ? "Edit Order" : "New Order"}
+            <ShoppingCartOutlined />
+            <span>Current Order</span>
+            <Badge count={cartItems.length} />
           </Space>
         }
         placement="right"
         onClose={() => {
           setIsDrawerVisible(false);
-          setEditingOrder(null);
           form.resetFields();
         }}
         open={isDrawerVisible}
-        width="100%"
-        bodyStyle={{ paddingBottom: 80 }}
-        destroyOnClose
+        width={windowWidth < 768 ? "100%" : 400}
+        destroyOnClose={true}
+        extra={
+          <Button
+            type="primary"
+            onClick={() => form.submit()}
+            disabled={cartItems.length === 0}
+            loading={isProcessing}
+          >
+            {isProcessing ? "Processing..." : "Place Order"}
+          </Button>
+        }
       >
-        <OrderForm />
+        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+          <Form.Item
+            name="customerName"
+            label="Customer Name"
+            rules={[{ required: true, message: "Please enter customer name!" }]}
+          >
+            <Input
+              prefix={<UserOutlined />}
+              placeholder="Enter customer name"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="staffId"
+            label="Staff Member"
+            rules={[{ required: true, message: "Please select staff member!" }]}
+          >
+            <Select placeholder="Select staff member">
+              {staff.map((staffMember) => (
+                <Option key={staffMember._id} value={staffMember._id}>
+                  {staffMember.name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Divider>Payment Details</Divider>
+
+          <Form.Item
+            name="paymentMethod"
+            label={
+              <Space>
+                <WalletOutlined />
+                <span>Payment Method</span>
+                <Tooltip title="Select how the customer will pay for this order">
+                  <InfoCircleOutlined style={{ color: "#1890ff" }} />
+                </Tooltip>
+              </Space>
+            }
+            initialValue="mobile"
+            rules={[
+              { required: true, message: "Please select payment method!" },
+            ]}
+          >
+            <Radio.Group onChange={(e) => setPaymentMethod(e.target.value)}>
+              <Space direction="vertical" style={{ width: "100%" }}>
+                <Radio value="mobile">
+                  <Card
+                    size="small"
+                    style={{
+                      width: "100%",
+                      borderColor:
+                        paymentMethod === "mobile" ? "#1890ff" : "#d9d9d9",
+                    }}
+                  >
+                    <Space>
+                      <MobileOutlined
+                        style={{ fontSize: "20px", color: "#1890ff" }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: "bold" }}>Mobile Money</div>
+                        <div style={{ fontSize: "12px", color: "#666" }}>
+                          Pay using mobile money (M-Pesa, etc.)
+                        </div>
+                      </div>
+                    </Space>
+                  </Card>
+                </Radio>
+                <Radio value="cash">
+                  <Card
+                    size="small"
+                    style={{
+                      width: "100%",
+                      borderColor:
+                        paymentMethod === "cash" ? "#1890ff" : "#d9d9d9",
+                    }}
+                  >
+                    <Space>
+                      <BankOutlined
+                        style={{ fontSize: "20px", color: "#52c41a" }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: "bold" }}>Cash</div>
+                        <div style={{ fontSize: "12px", color: "#666" }}>
+                          Pay with cash at counter
+                        </div>
+                      </div>
+                    </Space>
+                  </Card>
+                </Radio>
+                <Radio value="card">
+                  <Card
+                    size="small"
+                    style={{
+                      width: "100%",
+                      borderColor:
+                        paymentMethod === "card" ? "#1890ff" : "#d9d9d9",
+                    }}
+                  >
+                    <Space>
+                      <BankOutlined
+                        style={{ fontSize: "20px", color: "#722ed1" }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: "bold" }}>Card</div>
+                        <div style={{ fontSize: "12px", color: "#666" }}>
+                          Pay with credit/debit card
+                        </div>
+                      </div>
+                    </Space>
+                  </Card>
+                </Radio>
+              </Space>
+            </Radio.Group>
+          </Form.Item>
+
+          {paymentMethod === "cash" && (
+            <Alert
+              message="Cash Payment"
+              description={`Please collect the payment of KES ${calculateTotal().toFixed(
+                2
+              )} at the counter.`}
+              type="success"
+              showIcon
+            />
+          )}
+
+          <Divider>Order Items</Divider>
+
+          {cartItems.length === 0 ? (
+            <Empty description="No items in cart" />
+          ) : (
+            <Space direction="vertical" style={{ width: "100%" }}>
+              {cartItems.map((item) => (
+                <Card
+                  key={item.mealId}
+                  size="small"
+                  style={{ marginBottom: "8px" }}
+                >
+                  <Space align="start" style={{ width: "100%" }}>
+                    <Avatar
+                      size={40}
+                      src={item.meal?.images?.[0]?.url}
+                      icon={<ShoppingCartOutlined />}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <Text strong>{item.meal?.name}</Text>
+                      <div>
+                        <Text type="secondary">
+                          KES {item.meal?.price?.toFixed(2)} × {item.quantity}
+                        </Text>
+                      </div>
+                    </div>
+                    <Space>
+                      <Button
+                        size="small"
+                        icon={<MinusOutlined />}
+                        onClick={() =>
+                          updateQuantity(item.mealId, item.quantity - 1)
+                        }
+                      />
+                      <Text>{item.quantity}</Text>
+                      <Button
+                        size="small"
+                        icon={<PlusOutlined />}
+                        onClick={() =>
+                          updateQuantity(item.mealId, item.quantity + 1)
+                        }
+                      />
+                      <Button
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => removeFromCart(item.mealId)}
+                      />
+                    </Space>
+                  </Space>
+                </Card>
+              ))}
+
+              <Divider />
+
+              <div style={{ textAlign: "right" }}>
+                <Text strong>Total: </Text>
+                <Text strong style={{ color: "#52c41a", fontSize: "18px" }}>
+                  KES {calculateTotal().toFixed(2)}
+                </Text>
+              </div>
+            </Space>
+          )}
+        </Form>
       </Drawer>
+
+      {renderOrderList()}
+      {renderOrderStats()}
+      {renderOrderDetails()}
     </div>
   );
 };

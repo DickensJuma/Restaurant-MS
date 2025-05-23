@@ -4,7 +4,8 @@ const router = express.Router();
 
 router.post("/", async (req, res) => {
   try {
-    const { customerName, items, total, status, staffId } = req.body;
+    const { customerName, items, total, status, staffId, paymentMethod } =
+      req.body;
     console.log("Received order data:", req.body);
 
     const order = new Order({
@@ -16,14 +17,27 @@ router.post("/", async (req, res) => {
       total,
       status,
       staffId: staffId || req?.user?._id,
+      paymentMethod,
     });
 
     console.log("Created order object:", order);
-    await order.save();
-    res.json(order);
+    const savedOrder = await order.save();
+
+    // Populate the order with meal and staff details
+    const populatedOrder = await Order.findById(savedOrder._id)
+      .populate("items.mealId")
+      .populate("staffId", "name email");
+
+    res.json({
+      success: true,
+      data: populatedOrder,
+    });
   } catch (error) {
     console.error("Order creation error:", error);
-    res.status(400).json({ message: error.message });
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
   }
 });
 

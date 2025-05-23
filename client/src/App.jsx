@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ConfigProvider } from "antd";
 import { Provider } from "react-redux";
 import { store } from "./store";
+import { NotificationProvider } from "./context/NotificationContext";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Menu from "./pages/Menu";
@@ -45,7 +46,9 @@ function App() {
   return (
     <Provider store={store}>
       <ConfigProvider>
-        <AppContent />
+        <NotificationProvider>
+          <AppContent />
+        </NotificationProvider>
       </ConfigProvider>
     </Provider>
   );

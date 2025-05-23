@@ -17,14 +17,19 @@ import {
   Row,
   Col,
   Checkbox,
+  Upload,
+  Alert,
 } from "antd";
 import {
   UserAddOutlined,
   EditOutlined,
   DeleteOutlined,
   PictureOutlined,
+  UploadOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import { mealsAPI } from "../services/api";
+import { useNotification } from "../context/NotificationContext";
 
 const { Option } = Select;
 const { Text, Title } = Typography;
@@ -40,6 +45,8 @@ const Menu = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [previewImages, setPreviewImages] = useState([]);
+  const [imageError, setImageError] = useState(null);
+  const { addNotification } = useNotification();
 
   console.log("meals", meals);
 
@@ -103,12 +110,75 @@ const Menu = () => {
     }
   };
 
+  const validateImageUrl = (url) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(true);
+      img.onerror = () => resolve(false);
+      img.src = url;
+    });
+  };
+
+  const handleImageUrlsChange = async (e) => {
+    const urls = e.target.value
+      .split(/[,\n]/)
+      .map((url) => url.trim())
+      .filter((url) => url);
+
+    setImageError(null);
+
+    if (urls.length === 0) {
+      setPreviewImages([DEFAULT_MEAL_IMAGE]);
+      return;
+    }
+
+    // Validate URLs format
+    const invalidUrls = urls.filter((url) => !url.match(/^https?:\/\/.+/));
+    if (invalidUrls.length > 0) {
+      setImageError(
+        "Invalid URL format. URLs must start with http:// or https://"
+      );
+      return;
+    }
+
+    // Validate images
+    const validImages = [];
+    const invalidImages = [];
+
+    for (const url of urls) {
+      const isValid = await validateImageUrl(url);
+      if (isValid) {
+        validImages.push(url);
+      } else {
+        invalidImages.push(url);
+      }
+    }
+
+    if (invalidImages.length > 0) {
+      setImageError(
+        `Failed to load ${invalidImages.length} image(s). Please check the URLs.`
+      );
+    }
+
+    setPreviewImages(
+      validImages.length > 0 ? validImages : [DEFAULT_MEAL_IMAGE]
+    );
+  };
+
   const handleSubmit = async (values) => {
     try {
-      // Ensure images are properly formatted before submission
+      // Validate images before submission
+      if (
+        !previewImages.length ||
+        (previewImages.length === 1 && previewImages[0] === DEFAULT_MEAL_IMAGE)
+      ) {
+        message.error("Please add at least one valid image");
+        return;
+      }
+
       const formattedValues = {
         ...values,
-        images: Array.isArray(values.images) ? values.images : [],
+        images: previewImages.map((url) => ({ url })),
       };
 
       if (editingMeal) {
@@ -121,8 +191,8 @@ const Menu = () => {
       setIsModalVisible(false);
       form.resetFields();
       fetchMeals();
-    } catch {
-      message.error("Failed to save meal");
+    } catch (error) {
+      message.error(error.message || "Failed to save meal");
     }
   };
 
@@ -293,7 +363,12 @@ const Menu = () => {
               <Form.Item
                 name="name"
                 label="Name"
-                rules={[{ required: true, message: "Please input meal name!" }]}
+                rules={[
+                  {
+                    required: !editingMeal,
+                    message: "Please input meal name!",
+                  },
+                ]}
               >
                 <Input prefix={<UserAddOutlined />} />
               </Form.Item>
@@ -303,7 +378,10 @@ const Menu = () => {
                 name="price"
                 label="Price"
                 rules={[
-                  { required: true, message: "Please input meal price!" },
+                  {
+                    required: !editingMeal,
+                    message: "Please input meal price!",
+                  },
                 ]}
               >
                 <InputNumber
@@ -312,7 +390,7 @@ const Menu = () => {
                   min={0}
                   step={0.01}
                   formatter={(value) =>
-                    `KES ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                    `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                   }
                   parser={(value) => value.replace(/KES\s?|(,*)/g, "")}
                 />
@@ -324,7 +402,10 @@ const Menu = () => {
             name="description"
             label="Description"
             rules={[
-              { required: true, message: "Please input meal description!" },
+              {
+                required: !editingMeal,
+                message: "Please input meal description!",
+              },
             ]}
           >
             <Input.TextArea rows={4} />
@@ -336,7 +417,10 @@ const Menu = () => {
                 name="category"
                 label="Category"
                 rules={[
-                  { required: true, message: "Please select meal category!" },
+                  {
+                    required: !editingMeal,
+                    message: "Please select meal category!",
+                  },
                 ]}
               >
                 <Select>
@@ -371,7 +455,10 @@ const Menu = () => {
                 name="preparationTime"
                 label="Preparation Time (minutes)"
                 rules={[
-                  { required: true, message: "Please input preparation time!" },
+                  {
+                    required: !editingMeal,
+                    message: "Please input preparation time!",
+                  },
                 ]}
               >
                 <InputNumber min={1} style={{ width: "100%" }} />
@@ -381,7 +468,12 @@ const Menu = () => {
               <Form.Item
                 name="calories"
                 label="Calories"
-                rules={[{ required: true, message: "Please input calories!" }]}
+                rules={[
+                  {
+                    required: !editingMeal,
+                    message: "Please input calories!",
+                  },
+                ]}
               >
                 <InputNumber min={0} style={{ width: "100%" }} />
               </Form.Item>
@@ -391,7 +483,12 @@ const Menu = () => {
           <Form.Item
             name="ingredients"
             label="Ingredients"
-            rules={[{ required: true, message: "Please input ingredients!" }]}
+            rules={[
+              {
+                required: !editingMeal,
+                message: "Please input ingredients!",
+              },
+            ]}
           >
             <Select
               mode="tags"
@@ -405,7 +502,10 @@ const Menu = () => {
             name="dietaryInfo"
             label="Dietary Information"
             rules={[
-              { required: true, message: "Please select dietary information!" },
+              {
+                required: !editingMeal,
+                message: "Please select dietary information!",
+              },
             ]}
           >
             <Space direction="vertical" style={{ width: "100%" }}>
@@ -417,53 +517,97 @@ const Menu = () => {
 
           <Form.Item
             name="images"
-            label="Image URLs"
+            label={
+              <Space>
+                <PictureOutlined />
+                <span>Images</span>
+                <Text type="secondary" style={{ fontSize: "12px" }}>
+                  (Enter URLs separated by commas or new lines)
+                </Text>
+              </Space>
+            }
             rules={[
               {
-                required: true,
+                required: !editingMeal,
                 message: "Please input at least one image URL!",
               },
             ]}
             getValueFromEvent={(e) => {
-              const values = e.target.value
-                .split(",")
-                .map((url) => url.trim())
-                .filter((url) => url);
-              setPreviewImages(values.length ? values : [DEFAULT_MEAL_IMAGE]);
-              return values;
+              handleImageUrlsChange(e);
+              return e.target.value;
             }}
           >
             <Input.TextArea
               placeholder="Enter image URLs (one per line or comma-separated)"
               rows={4}
-              onChange={(e) => {
-                const values = e.target.value
-                  .split(",")
-                  .map((url) => url.trim())
-                  .filter((url) => url);
-                setPreviewImages(values.length ? values : [DEFAULT_MEAL_IMAGE]);
-              }}
+              onChange={handleImageUrlsChange}
             />
           </Form.Item>
 
+          {imageError && (
+            <Alert
+              message="Image Error"
+              description={imageError}
+              type="error"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+          )}
+
           {previewImages.length > 0 && (
             <div style={{ marginBottom: 16 }}>
+              <Text
+                type="secondary"
+                style={{ marginBottom: 8, display: "block" }}
+              >
+                Image Preview ({previewImages.length} image
+                {previewImages.length !== 1 ? "s" : ""})
+              </Text>
               <Image.PreviewGroup>
                 <Row gutter={[8, 8]}>
                   {previewImages.map((image, index) => (
                     <Col xs={12} sm={8} md={6} key={index}>
-                      <Image
-                        src={image}
-                        alt={`Preview ${index + 1}`}
-                        width="100%"
-                        height={100}
-                        style={{ objectFit: "cover" }}
-                        fallback={DEFAULT_MEAL_IMAGE}
-                        preview={true}
-                        onError={(e) => {
-                          e.target.src = DEFAULT_MEAL_IMAGE;
-                        }}
-                      />
+                      <div style={{ position: "relative" }}>
+                        <Image
+                          src={image}
+                          alt={`Preview ${index + 1}`}
+                          width="100%"
+                          height={100}
+                          style={{ objectFit: "cover" }}
+                          fallback={DEFAULT_MEAL_IMAGE}
+                          preview={true}
+                          onError={(e) => {
+                            e.target.src = DEFAULT_MEAL_IMAGE;
+                          }}
+                        />
+                        {image !== DEFAULT_MEAL_IMAGE && (
+                          <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            style={{
+                              position: "absolute",
+                              top: 4,
+                              right: 4,
+                              background: "rgba(255, 255, 255, 0.8)",
+                            }}
+                            onClick={() => {
+                              const newImages = previewImages.filter(
+                                (_, i) => i !== index
+                              );
+                              setPreviewImages(
+                                newImages.length
+                                  ? newImages
+                                  : [DEFAULT_MEAL_IMAGE]
+                              );
+                              form.setFieldsValue({
+                                images: newImages.join(",\n"),
+                              });
+                            }}
+                          />
+                        )}
+                      </div>
                     </Col>
                   ))}
                 </Row>
@@ -473,7 +617,12 @@ const Menu = () => {
 
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit" loading={loading}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                disabled={!!imageError}
+              >
                 {editingMeal ? "Update" : "Add"} Meal
               </Button>
               <Button onClick={() => setIsModalVisible(false)}>Cancel</Button>
