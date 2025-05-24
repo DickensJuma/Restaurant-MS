@@ -5,24 +5,112 @@ import {
   Form,
   Input,
   Button,
-  Card,
   Typography,
   Alert,
   Space,
-  theme,
+  Checkbox,
   Row,
   Col,
 } from "antd";
-import { UserOutlined, LockOutlined } from "@ant-design/icons";
+import {
+  UserOutlined,
+  LockOutlined,
+  FacebookFilled,
+  GoogleOutlined,
+} from "@ant-design/icons";
 import { authAPI } from "../services/api";
 import { loginSuccess, loginFailure } from "../store/slices/authSlice";
+import image from "../../public/images/bg-login.jpg"; // Adjust the path as necessary
+const { Title, Text } = Typography;
 
 const Login = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const { token } = theme.useToken();
+
+  // Responsive styles
+  const containerStyle = {
+    minHeight: "100vh",
+    display: "flex",
+    background: "#f7fafd",
+    fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+    flexDirection: "row",
+  };
+  const leftStyle = {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    background: "#fff",
+    padding: "0 40px",
+    minWidth: 320,
+    position: "relative",
+  };
+  const rightStyle = {
+    flex: 1,
+    minWidth: 320,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    background: "#f7fafd",
+    position: "relative",
+    overflow: "hidden",
+  };
+  const imageStyle = {
+    width: "100%",
+    height: "100vh",
+    backgroundImage: `url(${image})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    boxShadow: "0 8px 32px rgba(0,0,0,0.10)",
+    margin: "0 auto",
+    position: "relative",
+    zIndex: 1,
+  };
+  // Media queries for responsiveness
+  const mediaQuery = `@media (max-width: 900px)`;
+  const mobileQuery = `@media (max-width: 600px)`;
+  // Inline style tag for media queries
+  const responsiveStyles = `
+    ${mediaQuery} {
+      .login-container {
+        flex-direction: column !important;
+      }
+      .login-left, .login-right {
+        min-width: 100vw !important;
+        width: 100vw !important;
+        padding: 0 16px !important;
+      }
+      .login-image {
+        height: 320px !important;
+        min-height: 220px !important;
+      }
+    }
+    ${mobileQuery} {
+      .login-left, .login-right {
+        padding: 0 8px !important;
+      }
+      .login-image {
+        height: 180px !important;
+      }
+      .login-logo {
+        left: 16px !important;
+        top: 16px !important;
+      }
+      .login-footer {
+        left: 16px !important;
+        bottom: 12px !important;
+        width: calc(100% - 32px) !important;
+        font-size: 12px !important;
+      }
+      .login-right {
+        display: none !important;
+      }
+    }
+  `;
 
   const onFinish = async (values) => {
     try {
@@ -40,186 +128,207 @@ const Login = () => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        background: "#1a1a1a",
-      }}
-    >
-      {/* Image Section */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: "40px",
-          background:
-            "linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), #ff7400",
-          color: "white",
-          position: "relative",
-        }}
-      >
+    <div className="login-container" style={containerStyle}>
+      <style>{responsiveStyles}</style>
+      {/* Left: Login Form Section */}
+      <div className="login-left" style={leftStyle}>
+        {/* Logo */}
         <div
-          style={{
-            maxWidth: "600px",
-            textAlign: "center",
-            position: "relative",
-            zIndex: 1,
-          }}
+          className="login-logo"
+          style={{ position: "absolute", top: 40, left: 40 }}
         >
-          <Typography.Title
-            level={1}
+          <Title
+            level={2}
             style={{
-              color: "white",
-              marginBottom: "24px",
-              textShadow: "2px 2px 4px rgba(0,0,0,0.3)",
+              color: "#1877f2",
+              margin: 0,
+              fontWeight: 700,
+              letterSpacing: 1,
+              fontSize: 28,
             }}
           >
-            Welcome to Black Parrot
-          </Typography.Title>
-          <Typography.Paragraph
-            style={{
-              color: "rgba(255, 255, 255, 0.9)",
-              fontSize: "18px",
-              marginBottom: "32px",
-              textShadow: "1px 1px 2px rgba(0,0,0,0.3)",
-            }}
-          >
-            Experience the finest dining with our exceptional service and
-            delicious cuisine
-          </Typography.Paragraph>
-          <div
-            style={{
-              width: "100%",
-              height: "400px",
-              backgroundImage:
-                "url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80')",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              borderRadius: "12px",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-              border: "4px solid rgba(255, 255, 255, 0.1)",
-            }}
-          />
+            Black Parrot
+          </Title>
         </div>
-      </div>
-
-      {/* Login Form Section */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          padding: "40px",
-          background: "#ffffff",
-        }}
-      >
-        <Card
-          style={{
-            width: "100%",
-            maxWidth: 400,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
-            borderRadius: "12px",
-            border: "none",
-          }}
-        >
-          <Space direction="vertical" size="large" style={{ width: "100%" }}>
-            <div style={{ textAlign: "center" }}>
-              <Typography.Title
-                level={2}
-                style={{ color: "#1a1a1a", marginBottom: "8px" }}
-              >
-                Sign In
-              </Typography.Title>
-              <Typography.Text type="secondary" style={{ fontSize: "16px" }}>
-                Welcome back! Please login to your account
-              </Typography.Text>
-            </div>
-
-            {error && (
-              <Alert
-                message="Error"
-                description={error}
-                type="error"
-                showIcon
-              />
-            )}
-
-            <Form
-              name="login"
-              onFinish={onFinish}
-              layout="vertical"
-              size="large"
+        <div style={{ width: "100%", maxWidth: 400, margin: "0 auto" }}>
+          <div style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 12, color: "#888", letterSpacing: 1 }}>
+              CREATE A GREAT IMPACT
+            </Text>
+            <Title
+              level={3}
+              style={{ margin: "8px 0 0 0", fontWeight: 700, fontSize: 24 }}
             >
-              <Form.Item
-                name="email"
-                rules={[
-                  { required: true, message: "Please input your email!" },
-                  { type: "email", message: "Please enter a valid email!" },
-                ]}
-              >
-                <Input
-                  prefix={<UserOutlined />}
-                  placeholder="Email"
-                  style={{
-                    height: "45px",
-                    borderRadius: "8px",
-                  }}
-                />
-              </Form.Item>
+              Login to your account
+            </Title>
+          </div>
 
-              <Form.Item
-                name="password"
-                rules={[
-                  { required: true, message: "Please input your password!" },
-                ]}
-              >
-                <Input.Password
-                  prefix={<LockOutlined />}
-                  placeholder="Password"
-                  style={{
-                    height: "45px",
-                    borderRadius: "8px",
-                  }}
-                />
-              </Form.Item>
+          {error && (
+            <Alert
+              message="Error"
+              description={error}
+              type="error"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+          )}
 
-              <Form.Item>
+          <Form
+            name="login"
+            onFinish={onFinish}
+            layout="vertical"
+            size="large"
+            style={{ width: "100%" }}
+            initialValues={{ remember: true }}
+          >
+            <Form.Item
+              name="email"
+              rules={[
+                {
+                  required: true,
+                  message: "Please input your email!",
+                },
+              ]}
+            >
+              <Input
+                prefix={<UserOutlined />}
+                placeholder="Your E-mail"
+                style={{ height: 44, borderRadius: 8 }}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="password"
+              rules={[
+                { required: true, message: "Please input your password!" },
+              ]}
+            >
+              <Input.Password
+                prefix={<LockOutlined />}
+                placeholder="Your password"
+                style={{ height: 44, borderRadius: 8 }}
+              />
+            </Form.Item>
+
+            <Row
+              justify="space-between"
+              align="middle"
+              style={{ marginBottom: 8 }}
+            >
+              <Col>
+                <Form.Item name="remember" valuePropName="checked" noStyle>
+                  <Checkbox style={{ fontSize: 14 }}>Remember me</Checkbox>
+                </Form.Item>
+              </Col>
+              <Col>
+                <a href="#" style={{ fontSize: 14, color: "#1877f2" }}>
+                  Forgot password?
+                </a>
+              </Col>
+            </Row>
+
+            <Row gutter={8} style={{ marginBottom: 8 }}>
+              <Col span={12}>
+                <Button
+                  block
+                  style={{
+                    height: 44,
+                    borderRadius: 8,
+                    border: "1.5px solid #1877f2",
+                    color: "#1877f2",
+                    background: "#fff",
+                    fontWeight: 500,
+                  }}
+                  onClick={() => navigate("/")}
+                  disabled
+                >
+                  Sign up
+                </Button>
+              </Col>
+              <Col span={12}>
                 <Button
                   type="primary"
                   htmlType="submit"
                   loading={loading}
                   block
                   style={{
-                    height: "45px",
-                    fontSize: "16px",
-                    background: "#ff7400",
-                    borderRadius: "8px",
-                    border: "none",
-                    boxShadow: "0 4px 12px rgba(255, 116, 0, 0.2)",
-                    transition: "all 0.3s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = "#ff8533";
-                    e.target.style.boxShadow =
-                      "0 6px 16px rgba(255, 116, 0, 0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = "#ff7400";
-                    e.target.style.boxShadow =
-                      "0 4px 12px rgba(255, 116, 0, 0.2)";
+                    height: 44,
+                    borderRadius: 8,
+                    background: "#1877f2",
+                    fontWeight: 500,
                   }}
                 >
-                  Sign in
+                  Login
                 </Button>
-              </Form.Item>
-            </Form>
-          </Space>
-        </Card>
+              </Col>
+            </Row>
+          </Form>
+
+          <div style={{ textAlign: "center", margin: "24px 0 0 0" }}>
+            <Text style={{ color: "#b0b0b0", fontSize: 14 }}>
+              OR LOGIN WITH
+            </Text>
+            <Row gutter={16} justify="center" style={{ marginTop: 16 }}>
+              <Col>
+                <Button
+                  icon={<FacebookFilled style={{ fontSize: 20 }} />}
+                  style={{
+                    background: "#1877f2",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    width: 120,
+                    height: 44,
+                    fontWeight: 500,
+                  }}
+                  block
+                >
+                  Facebook
+                </Button>
+              </Col>
+              <Col>
+                <Button
+                  icon={<GoogleOutlined style={{ fontSize: 20 }} />}
+                  style={{
+                    background: "#fff",
+                    color: "#222",
+                    border: "1.5px solid #eee",
+                    borderRadius: 8,
+                    width: 120,
+                    height: 44,
+                    fontWeight: 500,
+                  }}
+                  block
+                >
+                  Google
+                </Button>
+              </Col>
+            </Row>
+          </div>
+        </div>
+        {/* Footer & Language Switcher */}
+        <div
+          className="login-footer"
+          style={{
+            position: "absolute",
+            bottom: 24,
+            left: 40,
+            width: "calc(100% - 80px)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#b0b0b0", fontSize: 13 }}>
+            All rights reserved © 2025
+          </Text>
+        </div>
+      </div>
+
+      {/* Right: Image/Testimonial Section */}
+      <div className="login-right" style={rightStyle}>
+        {/* Main Image */}
+        <div className="login-image" style={imageStyle} />
       </div>
     </div>
   );

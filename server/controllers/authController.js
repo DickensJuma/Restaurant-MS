@@ -52,10 +52,13 @@ exports.register = async (req, res) => {
 // Login user
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, phone, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
+    // Find user by email or phone
+    const user = await User.findOne({
+      $or: [{ email: email }, { phone: phone }],
+    });
+
     if (!user) {
       return res.status(400).json({ error: "Invalid credentials" });
     }
@@ -79,6 +82,7 @@ exports.login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         role: user.role,
       },
     });

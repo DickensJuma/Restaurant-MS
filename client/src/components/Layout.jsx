@@ -269,90 +269,157 @@ const AppLayout = () => {
   ];
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <Sider
-        collapsible
-        collapsed={collapsed}
-        onCollapse={setCollapsed}
-        theme="light"
-        style={{
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        }}
-      >
-        <div
-          style={{
-            padding: "16px",
-            textAlign: "center",
-            borderBottom: "1px solid #f0f0f0",
-          }}
-        >
-          <Typography.Title level={4} style={{ margin: 0, color: "#e65100" }}>
-            {collapsed ? "RMS" : "Black Parrot"}
-          </Typography.Title>
-        </div>
-        <Menu
+    <>
+      <Layout style={{ minHeight: "100vh" }}>
+        <Sider
+          collapsible
+          collapsed={collapsed}
+          onCollapse={setCollapsed}
           theme="light"
-          selectedKeys={[location.pathname]}
-          mode="inline"
-          items={menuItems}
-          onClick={({ key }) => navigate(key)}
-        />
-      </Sider>
-      <Layout>
-        <Header
           style={{
-            padding: "0 24px",
-            background: colorBgContainer,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
             boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            display: "block",
           }}
+          className="main-sider"
         >
-          <Space size={24}>
-            <Popover
-              content={notificationContent}
-              trigger="click"
-              placement="bottomRight"
-              arrow={{ pointAtCenter: true }}
-            >
-              <Badge
-                count={unreadCount}
-                size="small"
-                className="notification-badge"
+          <div
+            style={{
+              padding: "16px",
+              textAlign: "center",
+              borderBottom: "1px solid #f0f0f0",
+            }}
+          >
+            <Typography.Title level={4} style={{ margin: 0, color: "#e65100" }}>
+              {collapsed ? "RMS" : "Black Parrot"}
+            </Typography.Title>
+          </div>
+          <Menu
+            theme="light"
+            selectedKeys={[location.pathname]}
+            mode="inline"
+            items={menuItems}
+            onClick={({ key }) => navigate(key)}
+          />
+        </Sider>
+        <Layout>
+          <Header
+            style={{
+              padding: "0 24px",
+              background: colorBgContainer,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            }}
+          >
+            <Space size={24}>
+              <Popover
+                content={notificationContent}
+                trigger="click"
+                placement="bottomRight"
+                arrow={{ pointAtCenter: true }}
               >
-                <Button
-                  type="text"
-                  icon={<BellOutlined style={{ fontSize: "20px" }} />}
-                  style={{ padding: "4px 8px" }}
-                />
-              </Badge>
-            </Popover>
-            <Dropdown
-              menu={{ items: userMenuItems }}
-              placement="bottomRight"
-              arrow
-            >
-              <Space style={{ cursor: "pointer" }}>
-                <Avatar icon={<UserOutlined />} />
-                <Typography.Text strong>{user?.name}</Typography.Text>
-              </Space>
-            </Dropdown>
-          </Space>
-        </Header>
-        <Content
-          style={{
-            margin: "24px 16px",
-            padding: 24,
-            background: colorBgContainer,
-            borderRadius: borderRadiusLG,
-            minHeight: 280,
-          }}
-        >
-          <Outlet />
-        </Content>
+                <Badge
+                  count={unreadCount}
+                  size="small"
+                  className="notification-badge"
+                >
+                  <Button
+                    type="text"
+                    icon={<BellOutlined style={{ fontSize: "20px" }} />}
+                    style={{ padding: "4px 8px" }}
+                  />
+                </Badge>
+              </Popover>
+              <Dropdown
+                menu={{ items: userMenuItems }}
+                placement="bottomRight"
+                arrow
+              >
+                <Space style={{ cursor: "pointer" }}>
+                  <Avatar icon={<UserOutlined />} />
+                  <Typography.Text strong>{user?.name}</Typography.Text>
+                </Space>
+              </Dropdown>
+            </Space>
+          </Header>
+          <Content
+            style={{
+              margin: "24px 16px",
+              padding: 24,
+              background: colorBgContainer,
+              borderRadius: borderRadiusLG,
+              minHeight: 280,
+            }}
+          >
+            <Outlet />
+          </Content>
+        </Layout>
       </Layout>
-    </Layout>
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="mobile-bottom-nav">
+        {menuItems.map((item) => (
+          <div
+            key={item.key}
+            className={`mobile-nav-item${
+              location.pathname === item.key ? " active" : ""
+            }`}
+            onClick={() => navigate(item.key)}
+          >
+            {item.icon}
+            <span className="mobile-nav-label">{item.label}</span>
+          </div>
+        ))}
+      </div>
+      <style>{`
+        @media (max-width: 600px) {
+          .main-sider {
+            display: none !important;
+          }
+          .mobile-bottom-nav {
+            display: flex;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            height: 60px;
+            background: #fff;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+            z-index: 1000;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid #eee;
+          }
+          .mobile-nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font-size: 22px;
+            cursor: pointer;
+            transition: color 0.2s;
+            height: 100%;
+          }
+          .mobile-nav-item.active {
+            color: #e65100;
+            font-weight: 600;
+            background: #fff8e1;
+          }
+          .mobile-nav-label {
+            font-size: 10px;
+            margin-top: 2px;
+            display: block;
+          }
+        }
+        @media (min-width: 601px) {
+          .mobile-bottom-nav {
+            display: none !important;
+          }
+        }
+      `}</style>
+    </>
   );
 };
 

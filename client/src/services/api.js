@@ -47,7 +47,14 @@ axiosInstance.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  login: (credentials) => axiosInstance.post("/auth/login", credentials),
+  login: (credentials) => {
+    // If the input looks like a phone number, send it as phone, otherwise as email
+    const isPhone = /^[0-9+\-\s()]*$/.test(credentials.email);
+    const data = isPhone
+      ? { phone: credentials.email, password: credentials.password }
+      : { email: credentials.email, password: credentials.password };
+    return axiosInstance.post("/auth/login", data);
+  },
   register: (userData) => axiosInstance.post("/auth/register", userData),
   getProfile: () => axiosInstance.get("/auth/profile"),
   logout: () => {

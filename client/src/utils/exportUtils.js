@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 // Currency formatter
 const formatCurrency = (value) => {
@@ -43,15 +43,15 @@ export const exportToPDF = (data, columns, filename, reportType) => {
     // Process data for table
     const tableData = data.map((row) => {
       return columns.map((col) => {
-        const value = row[col.dataIndex];
+        const value = row[col.key];
         // Handle different data types
         if (typeof value === "number") {
           // Check if the column is a currency column
           if (
-            col.title.toLowerCase().includes("sales") ||
-            col.title.toLowerCase().includes("amount") ||
-            col.title.toLowerCase().includes("spent") ||
-            col.title.toLowerCase().includes("revenue")
+            col.header.toLowerCase().includes("sales") ||
+            col.header.toLowerCase().includes("amount") ||
+            col.header.toLowerCase().includes("spent") ||
+            col.header.toLowerCase().includes("revenue")
           ) {
             return formatCurrency(value);
           }
@@ -64,9 +64,9 @@ export const exportToPDF = (data, columns, filename, reportType) => {
       });
     });
 
-    // Add table
-    doc.autoTable({
-      head: [columns.map((col) => col.title)],
+    // Add table using autoTable
+    autoTable(doc, {
+      head: [columns.map((col) => col.header)],
       body: tableData,
       startY: 35,
       styles: {
@@ -133,53 +133,69 @@ export const exportToPDF = (data, columns, filename, reportType) => {
   }
 };
 
-export const formatReportData = (reportData, reportType) => {
+export const formatReportData = (data, reportType) => {
   try {
+    let formattedData = [];
+    let columns = [];
+
     switch (reportType) {
       case "sales":
-        return {
-          data: reportData.tableData.map((row) => ({
-            ...row,
-            sales: formatCurrency(row.sales.replace(/[^0-9.-]+/g, "")),
-          })),
-          columns: reportData.columns,
-          summary: {
-            ...reportData.summary,
-            totalSales: formatCurrency(reportData.summary.totalSales),
-            averageOrderValue: formatCurrency(
-              reportData.summary.averageOrderValue
-            ),
-          },
-        };
+        formattedData = data.tableData.map((row) => ({
+          Date: row.date,
+          Sales:
+            typeof row.sales === "number"
+              ? `KES ${row.sales.toFixed(2)}`
+              : row.sales,
+          Orders: row.orders,
+        }));
+        columns = [
+          { header: "Date", key: "Date", width: 15 },
+          { header: "Sales", key: "Sales", width: 15 },
+          { header: "Orders", key: "Orders", width: 10 },
+        ];
+        break;
+
       case "customer-analytics":
-        return {
-          data: reportData.tableData.map((row) => ({
-            ...row,
-            totalSpent: formatCurrency(row.totalSpent),
-          })),
-          columns: reportData.columns,
-          summary: {
-            ...reportData.summary,
-            averageOrderValue: formatCurrency(
-              reportData.summary.averageOrderValue
-            ),
-          },
-          segments: reportData.customerSegments,
-        };
+        formattedData = data.tableData.map((row) => ({
+          "Customer ID": row.customerId,
+          Orders: row.orders,
+          "Total Spent":
+            typeof row.totalSpent === "number"
+              ? `KES ${row.totalSpent.toFixed(2)}`
+              : row.totalSpent,
+          "Last Visit": new Date(row.lastVisit).toLocaleDateString(),
+        }));
+        columns = [
+          { header: "Customer ID", key: "Customer ID", width: 15 },
+          { header: "Orders", key: "Orders", width: 10 },
+          { header: "Total Spent", key: "Total Spent", width: 15 },
+          { header: "Last Visit", key: "Last Visit", width: 15 },
+        ];
+        break;
+
       case "peak-hours":
-        return {
-          data: reportData.tableData,
-          columns: reportData.columns,
-          summary: reportData.summary,
-        };
+        formattedData = data.tableData.map((row) => ({
+          Hour: row.hour,
+          Orders: row.orders,
+          Percentage: row.percentage,
+        }));
+        columns = [
+          { header: "Hour", key: "Hour", width: 10 },
+          { header: "Orders", key: "Orders", width: 10 },
+          { header: "Percentage", key: "Percentage", width: 10 },
+        ];
+        break;
+
       default:
-        return {
-          data: reportData.tableData,
-          columns: reportData.columns,
-        };
+        throw new Error("Invalid report type");
     }
+
+    return {
+      data: formattedData,
+      columns: columns,
+    };
   } catch (error) {
-    console.error("Data Formatting Error:", error);
-    throw new Error("Failed to format report data: " + error.message);
+    console.error("Error formatting report data:", error);
+    throw new Error(`Failed to format report data: ${error.message}`);
   }
 };

@@ -17,6 +17,7 @@ exports.getSalesReport = async (req, res) => {
 
     const orders = await Order.find(query);
 
+
     // Calculate daily sales
     const dailySales = orders.reduce((acc, order) => {
       const date = order.createdAt.toISOString().split("T")[0];

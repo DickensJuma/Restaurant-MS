@@ -39,7 +39,7 @@ import {
   CalendarOutlined,
 } from "@ant-design/icons";
 import { fetchStaff, deleteStaff } from "../store/slices/staffSlice";
-import { ordersAPI, staffAPI, reportsAPI } from "../services/api";
+import { staffAPI, reportsAPI, ordersAPI } from "../services/api";
 import { useNotification } from "../context/NotificationContext";
 import { Line } from "@ant-design/plots";
 
@@ -120,15 +120,12 @@ const Staff = () => {
   const fetchStaffStats = async () => {
     try {
       const response = await ordersAPI.getAll();
-      console.log("Staff stats response:==>", response.data);
       if (!Array.isArray(response.data)) {
         console.error("Invalid orders response:", response);
         return;
       }
 
       const orders = response.data;
-
-      console.log("orders==>", orders);
 
       // Calculate stats for each staff member
       const stats = {};
@@ -138,9 +135,24 @@ const Staff = () => {
         const staffOrders = orders.filter(
           (order) => order?.staffId === staffMember._id
         );
+
+        // Calculate today's orders
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayOrders = staffOrders.filter((order) => {
+          const orderDate = new Date(order.createdAt);
+          orderDate.setHours(0, 0, 0, 0);
+          return orderDate.getTime() === today.getTime();
+        });
+
         stats[staffMember._id] = {
           totalOrders: staffOrders.length,
+          todayOrders: todayOrders.length,
           totalRevenue: staffOrders.reduce(
+            (sum, order) => sum + (order?.total || 0),
+            0
+          ),
+          todayRevenue: todayOrders.reduce(
             (sum, order) => sum + (order?.total || 0),
             0
           ),
@@ -209,31 +221,14 @@ const Staff = () => {
 
   const isMobile = screenSize < 768;
 
-  const handleAddStaff = async (values) => {
+  const handleAddStaff = async (staffData) => {
     try {
-      setEditingStaff(null);
-      form.resetFields();
-      setIsModalVisible(true);
-
-      const response = await ordersAPI.createStaff(values);
-      if (response.success) {
-        addNotification(
-          "success",
-          "Staff Added",
-          `${values.name} has been added to the staff`,
-          "staff"
-        );
-        form.resetFields();
-        fetchStaff();
-      }
+      const response = await staffAPI.create(staffData);
+      dispatch(fetchStaff.fulfilled([...staff, response.data]));
+      message.success("Staff member added successfully");
     } catch (error) {
-      addNotification(
-        "error",
-        "Failed to Add Staff",
-        error.response?.data?.message ||
-          "Failed to add staff member. Please try again.",
-        "staff"
-      );
+      message.error(error.message || "Failed to add staff member");
+      throw error;
     }
   };
 
@@ -248,85 +243,50 @@ const Staff = () => {
 
   const handleDeleteStaff = async (id) => {
     try {
-      // Check if staff has any orders
-      const response = await ordersAPI.getAll();
-      const staffOrders = response.data.filter((order) => order.staffId === id);
-
-      if (staffOrders.length > 0) {
-        addNotification(
-          "error",
-          "Cannot Delete Staff",
-          "Cannot delete staff member with existing orders. Please reassign or delete their orders first.",
-          "staff"
-        );
-        return;
-      }
-
-      const deleteResponse = await ordersAPI.deleteStaff(id);
-      if (deleteResponse.success) {
-        addNotification(
-          "success",
-          "Staff Removed",
-          "The staff member has been removed successfully",
-          "staff"
-        );
-        await dispatch(deleteStaff(id)).unwrap();
-
-        // If the deleted staff was selected, select the first available staff
-        if (selectedStaff?._id === id) {
-          const remainingStaff = staff.filter((s) => s._id !== id);
-          setSelectedStaff(remainingStaff[0] || null);
-        }
-      }
+      await staffAPI.delete(id);
+      dispatch(deleteStaff(id));
+      message.success("Staff member deleted successfully");
     } catch (error) {
-      addNotification(
-        "error",
-        "Deletion Failed",
-        error.response?.data?.message ||
-          "Failed to remove staff member. Please try again.",
-        "staff"
-      );
+      message.error(error.message || "Failed to delete staff member");
     }
   };
 
-  const handleUpdateStaff = async (values) => {
+  const handleUpdateStaff = async (staffData) => {
     try {
-      const response = await ordersAPI.updateStaff(selectedStaff._id, values);
-      if (response.success) {
-        addNotification(
-          "success",
-          "Staff Updated",
-          `${values.name}'s information has been updated successfully`,
-          "staff"
-        );
-        setSelectedStaff(null);
-        form.resetFields();
-        fetchStaff();
-      }
-    } catch (error) {
-      addNotification(
-        "error",
-        "Update Failed",
-        error.response?.data?.message ||
-          "Failed to update staff information. Please try again.",
-        "staff"
+      const response = await staffAPI.update(editingStaff._id, staffData);
+      dispatch(
+        fetchStaff.fulfilled(
+          staff.map((s) => (s._id === editingStaff._id ? response.data : s))
+        )
       );
+      message.success("Staff member updated successfully");
+    } catch (error) {
+      message.error(error.message || "Failed to update staff member");
+      throw error;
     }
   };
 
   const handleToggleStatus = async (staffId, currentStatus) => {
     try {
-      const response = await ordersAPI.updateStaff(staffId, {
-        isActive: !currentStatus,
+      const response = await staffAPI.update(staffId, {
+        status: !currentStatus ? "active" : "inactive",
       });
-      if (response.success) {
+      if (response.data) {
         addNotification(
           "success",
           "Status Updated",
           `Staff member is now ${!currentStatus ? "active" : "inactive"}`,
           "staff"
         );
-        fetchStaff();
+        dispatch(
+          fetchStaff.fulfilled(
+            staff.map((s) =>
+              s._id === staffId
+                ? { ...s, status: !currentStatus ? "active" : "inactive" }
+                : s
+            )
+          )
+        );
       }
     } catch (error) {
       addNotification(
@@ -367,6 +327,12 @@ const Staff = () => {
           ...selectedStaff,
           ...staffData,
         };
+        dispatch(
+          fetchStaff.fulfilled([
+            ...staff.filter((s) => s._id !== editingStaff._id),
+            updatedStaff,
+          ])
+        );
         setSelectedStaff(updatedStaff);
       }
     } catch (error) {
@@ -397,9 +363,9 @@ const Staff = () => {
       <Col xs={24} sm={12} md={6}>
         <Card loading={loading}>
           <Statistic
-            title="Total Orders"
+            title="Today's Orders"
             value={Object.values(staffStats || {}).reduce(
-              (sum, stat) => sum + (stat.totalOrders || 0),
+              (sum, stat) => sum + (stat.todayOrders || 0),
               0
             )}
             prefix={<ShoppingOutlined />}
@@ -409,9 +375,9 @@ const Staff = () => {
       <Col xs={24} sm={12} md={6}>
         <Card loading={loading}>
           <Statistic
-            title="Total Revenue"
+            title="Today's Revenue"
             value={Object.values(staffStats || {}).reduce(
-              (sum, stat) => sum + (stat.totalRevenue || 0),
+              (sum, stat) => sum + (stat.todayRevenue || 0),
               0
             )}
             prefix={<DollarOutlined />}
@@ -430,7 +396,11 @@ const Staff = () => {
         <Button
           type="primary"
           icon={<UserAddOutlined />}
-          onClick={() => handleAddStaff({})}
+          onClick={() => {
+            setEditingStaff(null);
+            form.resetFields();
+            setIsModalVisible(true);
+          }}
           size={isMobile ? "small" : "middle"}
           disabled={user?.role !== "admin"}
         >
@@ -451,7 +421,8 @@ const Staff = () => {
                 icon={<EditOutlined />}
                 onClick={() => handleEditStaff(staffMember)}
                 disabled={
-                  user?.role !== "admin" && user?._id !== staffMember?._id
+                  (user?.role !== "admin" && user?._id !== staffMember?._id) ||
+                  (staffMember?.role === "admin" && user?.role !== "admin")
                 }
               />,
               <Button
@@ -462,7 +433,9 @@ const Staff = () => {
                     staffMember?.status === "active"
                   )
                 }
-                disabled={user?.role !== "admin"}
+                disabled={
+                  user?.role !== "admin" || staffMember?.role === "admin"
+                }
               >
                 {staffMember?.status === "active" ? "Deactivate" : "Activate"}
               </Button>,
@@ -471,12 +444,15 @@ const Staff = () => {
                 onConfirm={() => handleDeleteStaff(staffMember?._id)}
                 okText="Yes"
                 cancelText="No"
+                disabled={staffMember?.role === "admin"}
               >
                 <Button
                   size="small"
                   danger
                   icon={<DeleteOutlined />}
-                  disabled={user?.role !== "admin"}
+                  disabled={
+                    user?.role !== "admin" || staffMember?.role === "admin"
+                  }
                 />
               </Popconfirm>,
             ]}

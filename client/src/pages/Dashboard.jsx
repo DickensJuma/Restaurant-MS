@@ -68,7 +68,6 @@ const Dashboard = () => {
   console.log("selectedStaff", selectedStaff);
   console.log("staffStats", staffStats);
 
-
   // Determine if we're on mobile
   const isMobile = !screens.md;
   const isTablet = screens.md && !screens.lg;
@@ -194,7 +193,7 @@ const Dashboard = () => {
           const ordersResponse = await ordersAPI.getAll();
           const orders = ordersResponse?.data || [];
 
-          console.log("orders", orders);  
+          console.log("orders", orders);
 
           if (Array.isArray(orders)) {
             // Calculate staff statistics
@@ -211,7 +210,9 @@ const Dashboard = () => {
                 staffStats[order.staffId.name].orderCount++;
                 staffStats[order.staffId.name].revenue += order.total || 0;
                 if (order.customerName) {
-                  staffStats[order.staffId.name].customers.add(order.customerName);
+                  staffStats[order.staffId.name].customers.add(
+                    order.customerName
+                  );
                 }
               }
             });
@@ -222,7 +223,8 @@ const Dashboard = () => {
                 orderCount: stats.orderCount,
                 revenue: stats.revenue,
                 customerCount: stats.customers.size,
-                averageOrderValue: stats.orderCount > 0 ? stats.revenue / stats.orderCount : 0
+                averageOrderValue:
+                  stats.orderCount > 0 ? stats.revenue / stats.orderCount : 0,
               })
             );
 

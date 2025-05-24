@@ -95,12 +95,13 @@ function Reports() {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const today = dayjs().format("YYYY-MM-DD");
+      const startDate = dayjs().startOf("month").format("YYYY-MM-DD");
+      const endDate = dayjs().endOf("month").format("YYYY-MM-DD");
       const response = await reportsAPI.getSalesReport({
-        startDate: today,
-        endDate: today,
+        startDate,
+        endDate,
       });
-      console.log("Initial sales data:", response); // Debug log
+      console.log("Initial sales data:", response.data);
 
       if (response?.data) {
         setReportData(response.data);
@@ -428,32 +429,34 @@ function Reports() {
       case "sales":
         return (
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={reportData.dailySales}>
+            <BarChart data={reportData.dailySales}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
-              <YAxis
-                tickFormatter={(value) =>
-                  `KES ${value.toLocaleString("en-KE")}`
-                }
-              />
+              <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
+              <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
               <Tooltip
-                formatter={(value) => formatCurrency(value)}
+                formatter={(value, name) => [
+                  name === "amount" ? formatCurrency(value) : value,
+                  name === "amount" ? "Sales" : "Orders",
+                ]}
                 labelFormatter={(label) => `Date: ${label}`}
               />
               <Legend />
-              <Line
-                type="monotone"
+              <Bar
+                yAxisId="left"
                 dataKey="amount"
-                stroke="#8884d8"
+                fill="#8884d8"
                 name="Sales"
+                radius={[4, 4, 0, 0]}
               />
-              <Line
-                type="monotone"
+              <Bar
+                yAxisId="right"
                 dataKey="orders"
-                stroke="#82ca9d"
+                fill="#82ca9d"
                 name="Orders"
+                radius={[4, 4, 0, 0]}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         );
       case "customer-analytics":
@@ -649,7 +652,7 @@ function Reports() {
           layout="vertical"
           initialValues={{
             reportType: "sales",
-            dateRange: [dayjs().subtract(7, "day"), dayjs()],
+            dateRange: [dayjs().startOf("month"), dayjs().endOf("month")],
           }}
         >
           <Row gutter={16}>

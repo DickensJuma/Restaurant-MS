@@ -362,9 +362,11 @@ const Customers = () => {
             <Progress
               percent={
                 customerStats
-                  ? (customerStats.filter((c) => c.totalOrders > 1).length /
-                      customerStats.length) *
-                    100
+                  ? (
+                      (customerStats.filter((c) => c.totalOrders > 1).length /
+                        customerStats.length) *
+                      100
+                    ).toFixed(2)
                   : 0
               }
               size="small"
