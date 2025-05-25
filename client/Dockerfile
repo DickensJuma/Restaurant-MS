@@ -1,13 +1,31 @@
-# Use Node.js LTS image
-FROM node:18
+# client/Dockerfile
+FROM node:18-alpine AS build
 
 WORKDIR /app
 
+# Copy client package files
 COPY package*.json ./
-RUN npm install
 
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy client source code
 COPY . .
 
-EXPOSE 3001
+# Build the React app
+RUN npm run build
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Production stage with nginx
+FROM nginx:alpine
+
+# Copy built app to nginx
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Copy nginx configuration (optional)
+COPY nginx.conf /etc/nginx/nginx.conf 2>/dev/null || echo "No custom nginx config found"
+
+# Expose port
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
