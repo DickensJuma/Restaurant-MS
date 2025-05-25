@@ -71,44 +71,91 @@ const Login = () => {
     position: "relative",
     zIndex: 1,
   };
+
   // Media queries for responsiveness
-  const mediaQuery = `@media (max-width: 900px)`;
-  const mobileQuery = `@media (max-width: 600px)`;
+  const desktopQuery = `@media (min-width: 1200px)`;
+  const tabletQuery = `@media (min-width: 768px) and (max-width: 1199px)`;
+  const mobileQuery = `@media (max-width: 767px)`;
+
   // Inline style tag for media queries
   const responsiveStyles = `
-    ${mediaQuery} {
+    ${desktopQuery} {
       .login-container {
-        flex-direction: column !important;
+        flex-direction: row;
       }
-      .login-left, .login-right {
-        min-width: 100vw !important;
-        width: 100vw !important;
-        padding: 0 16px !important;
+      .login-left {
+        flex: 1;
+        padding: 0 40px;
+      }
+      .login-right {
+        flex: 1;
+        display: flex;
       }
       .login-image {
-        height: 320px !important;
-        min-height: 220px !important;
+        height: 100vh;
+      }
+    }
+    ${tabletQuery} {
+      .login-container {
+        flex-direction: row;
+      }
+      .login-left {
+        flex: 1.2;
+        padding: 0 32px;
+      }
+      .login-right {
+        flex: 0.8;
+        display: flex;
+      }
+      .login-image {
+        height: 100vh;
+      }
+      .login-logo {
+        top: 24px !important;
+        left: 24px !important;
+      }
+      .login-footer {
+        left: 24px !important;
+        bottom: 16px !important;
+        width: calc(100% - 48px) !important;
+      }
+      .login-form-container {
+        max-width: 360px !important;
+      }
+      .login-title {
+        font-size: 20px !important;
+      }
+      .login-subtitle {
+        font-size: 14px !important;
+      }
+      .login-button {
+        height: 40px !important;
       }
     }
     ${mobileQuery} {
-      .login-left, .login-right {
-        padding: 0 8px !important;
+      .login-container {
+        flex-direction: column;
       }
-      .login-image {
-        height: 180px !important;
-      }
-      .login-logo {
-        left: 16px !important;
-        top: 16px !important;
-      }
-      .login-footer {
-        left: 16px !important;
-        bottom: 12px !important;
-        width: calc(100% - 32px) !important;
-        font-size: 12px !important;
+      .login-left {
+        min-width: 100vw;
+        width: 100vw;
+        padding: 0 16px;
       }
       .login-right {
         display: none !important;
+      }
+      .login-image {
+        display: none !important;
+      }
+      .login-logo {
+        left: 16px;
+        top: 16px;
+      }
+      .login-footer {
+        left: 16px;
+        bottom: 12px;
+        width: calc(100% - 32px);
+        font-size: 12px;
       }
     }
   `;
@@ -156,13 +203,20 @@ const Login = () => {
             Black Parrot
           </Title>
         </div>
-        <div style={{ width: "100%", maxWidth: 400, margin: "0 auto" }}>
+        <div
+          className="login-form-container"
+          style={{ width: "100%", maxWidth: 400, margin: "0 auto" }}
+        >
           <div style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 12, color: "#888", letterSpacing: 1 }}>
+            <Text
+              className="login-subtitle"
+              style={{ fontSize: 12, color: "#888", letterSpacing: 1 }}
+            >
               Welcome back to Black Parrot
             </Text>
             <Title
               level={3}
+              className="login-title"
               style={{ margin: "8px 0 0 0", fontWeight: 700, fontSize: 24 }}
             >
               Login to your account
@@ -199,6 +253,7 @@ const Login = () => {
               <Input
                 prefix={<UserOutlined />}
                 placeholder="Your E-mail"
+                className="login-input"
                 style={{ height: 44, borderRadius: 8 }}
               />
             </Form.Item>
@@ -212,6 +267,7 @@ const Login = () => {
               <Input.Password
                 prefix={<LockOutlined />}
                 placeholder="Your password"
+                className="login-input"
                 style={{ height: 44, borderRadius: 8 }}
               />
             </Form.Item>
@@ -237,6 +293,7 @@ const Login = () => {
               <Col span={12}>
                 <Button
                   block
+                  className="login-button"
                   style={{
                     height: 44,
                     borderRadius: 8,
@@ -257,6 +314,7 @@ const Login = () => {
                   htmlType="submit"
                   loading={loading}
                   block
+                  className="login-button"
                   style={{
                     height: 44,
                     borderRadius: 8,
@@ -278,6 +336,7 @@ const Login = () => {
               <Col>
                 <Button
                   icon={<FacebookFilled style={{ fontSize: 20 }} />}
+                  className="login-button"
                   style={{
                     background: "#1877f2",
                     color: "#fff",
@@ -295,6 +354,7 @@ const Login = () => {
               <Col>
                 <Button
                   icon={<GoogleOutlined style={{ fontSize: 20 }} />}
+                  className="login-button"
                   style={{
                     background: "#fff",
                     color: "#222",

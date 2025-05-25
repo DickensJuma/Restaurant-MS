@@ -2,7 +2,10 @@ import axios from "axios";
 
 // Create axios instance
 const axiosInstance = axios.create({
-  baseURL: "/api", // This will be proxied by Nginx
+  baseURL:
+    import.meta.env.VITE_ENV === "development"
+      ? "http://localhost:5001/api"
+      : "/api",
   headers: {
     "Content-Type": "application/json",
   },
