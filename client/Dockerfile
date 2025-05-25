@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy client source code
 COPY . .
@@ -19,10 +19,7 @@ RUN npm run build
 FROM nginx:alpine
 
 # Copy built app to nginx
-COPY --from=build /app/build /usr/share/nginx/html
-
-# Copy nginx configuration (optional)
-COPY nginx.conf /etc/nginx/nginx.conf 2>/dev/null || echo "No custom nginx config found"
+COPY --from=build /app/dist /usr/share/nginx/html
 
 # Expose port
 EXPOSE 80
