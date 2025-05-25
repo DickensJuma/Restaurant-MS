@@ -432,7 +432,6 @@ const Dashboard = () => {
       ),
     }));
 
-    console.log("Transformed data:", transformedData);
 
     return <Column {...salesConfig} data={transformedData} />;
   };
