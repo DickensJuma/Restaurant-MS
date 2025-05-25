@@ -3,8 +3,6 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 require('dotenv').config();
 
-console.log('JWT_SECRET loaded:', !!process.env.JWT_SECRET); // Should log 'true'
-console.log('JWT_SECRET value:', process.env.JWT_SECRET?.substring(0, 10) + '...'); // First 10 chars
 
 
 // Register a new user

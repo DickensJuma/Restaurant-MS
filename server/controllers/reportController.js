@@ -8,15 +8,44 @@ exports.getSalesReport = async (req, res) => {
     const { startDate, endDate } = req.query;
     const query = {};
 
+    // Get today's date in UTC
+    const now = new Date();
+    const startOfToday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    );
+
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setUTCDate(startOfYesterday.getUTCDate() - 1);
+
+    console.log("Debug dates:", {
+      now: now.toISOString(),
+      startOfToday: startOfToday.toISOString(),
+      startOfYesterday: startOfYesterday.toISOString(),
+      requestDates: { startDate, endDate },
+    });
+
+    // If date range is provided, use it
     if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999); // Include the entire end date
       query.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
+        $gte: start,
+        $lte: end,
       };
     }
 
+    // Get orders based on query
     const orders = await Order.find(query);
 
+    console.log(
+      "Found orders:",
+      orders.map((order) => ({
+        id: order._id,
+        createdAt: order.createdAt.toISOString(),
+        total: order.total,
+      }))
+    );
 
     // Calculate daily sales
     const dailySales = orders.reduce((acc, order) => {
@@ -42,11 +71,32 @@ exports.getSalesReport = async (req, res) => {
     const totalOrders = orders.length;
     const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
 
+    // If no date range is provided, get today's stats
+    let todayOrders = 0;
+    let todayRevenue = 0;
+
+    if (!startDate && !endDate) {
+      const todayOrdersList = await Order.find({
+        createdAt: { $gte: startOfToday },
+      });
+      todayOrders = todayOrdersList.length;
+      todayRevenue = todayOrdersList.reduce(
+        (sum, order) => sum + order.total,
+        0
+      );
+    } else {
+      // If date range is provided, use the orders from that range
+      todayOrders = totalOrders;
+      todayRevenue = totalSales;
+    }
+
     res.json({
       summary: {
         totalSales,
         totalOrders,
         averageOrderValue,
+        todayOrders,
+        todayRevenue,
       },
       dailySales: Object.entries(dailySales).map(([date, data]) => ({
         date,

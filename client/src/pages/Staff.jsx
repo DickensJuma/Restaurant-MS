@@ -41,7 +41,7 @@ import {
 import { fetchStaff, deleteStaff } from "../store/slices/staffSlice";
 import { staffAPI, reportsAPI, ordersAPI } from "../services/api";
 import { useNotification } from "../context/NotificationContext";
-import { Line } from "@ant-design/plots";
+import { Line, Column, Pie } from "@ant-design/plots";
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -68,22 +68,133 @@ const Staff = () => {
       try {
         setLoading(true);
         const response = await staffAPI.getAll();
+        let staffData;
 
         if (Array.isArray(response)) {
-          // Dispatch the staff data to Redux
+          staffData = response;
           dispatch(fetchStaff.fulfilled(response));
-          // Fetch staff stats after we have the staff data
-          fetchStaffStats();
         } else if (response && response.data && Array.isArray(response.data)) {
-          // Handle case where response is wrapped in a data property
+          staffData = response.data;
           dispatch(fetchStaff.fulfilled(response.data));
-          fetchStaffStats();
         } else {
           console.error("Invalid staff response:", response);
           addNotification(
             "error",
             "Failed to Load Staff",
             "Could not load staff data. Please try again.",
+            "staff"
+          );
+          return;
+        }
+
+        // Fetch orders and calculate stats using the staff data directly
+        try {
+          const ordersResponse = await ordersAPI.getAll();
+          if (!Array.isArray(ordersResponse.data)) {
+            console.error("Invalid orders response:", ordersResponse);
+            return;
+          }
+
+          const orders = ordersResponse.data;
+          console.log(
+            "All orders:",
+            orders.map((order) => ({
+              id: order._id,
+              staffId: order.staffId?._id,
+              staffName: order.staffId?.name,
+              createdAt: order.createdAt,
+              total: order.total,
+            }))
+          );
+
+          // Calculate stats for each staff member
+          const stats = {};
+          staffData.forEach((staffMember) => {
+            if (!staffMember?._id) {
+              console.log("Skipping staff member with no ID:", staffMember);
+              return;
+            }
+
+            const staffOrders = orders.filter(
+              (order) => order?.staffId?._id === staffMember._id
+            );
+
+            console.log(
+              `Staff ${staffMember._id} (${staffMember.name}) orders:`,
+              staffOrders.map((order) => ({
+                id: order._id,
+                createdAt: order.createdAt,
+                total: order.total,
+              }))
+            );
+
+            // Calculate today's orders using UTC
+            const now = new Date();
+            const startOfToday = new Date(
+              Date.UTC(
+                now.getUTCFullYear(),
+                now.getUTCMonth(),
+                now.getUTCDate()
+              )
+            );
+
+            console.log("Date debug:", {
+              now: now.toISOString(),
+              startOfToday: startOfToday.toISOString(),
+            });
+
+            const todayOrders = staffOrders.filter((order) => {
+              const orderDate = new Date(order.createdAt);
+              const isToday = orderDate >= startOfToday;
+              console.log(`Order ${order._id} date check:`, {
+                orderDate: orderDate.toISOString(),
+                startOfToday: startOfToday.toISOString(),
+                isToday,
+              });
+              return isToday;
+            });
+
+            console.log(
+              `Staff ${staffMember._id} (${staffMember.name}) today's orders:`,
+              todayOrders.map((order) => ({
+                id: order._id,
+                createdAt: order.createdAt,
+                total: order.total,
+              }))
+            );
+
+            stats[staffMember._id] = {
+              totalOrders: staffOrders.length,
+              todayOrders: todayOrders.length,
+              totalRevenue: staffOrders.reduce(
+                (sum, order) => sum + (order?.total || 0),
+                0
+              ),
+              todayRevenue: todayOrders.reduce(
+                (sum, order) => sum + (order?.total || 0),
+                0
+              ),
+              uniqueCustomers: new Set(
+                staffOrders.map((order) => order?.customerName).filter(Boolean)
+              ).size,
+              averageOrderValue: staffOrders.length
+                ? staffOrders.reduce(
+                    (sum, order) => sum + (order?.total || 0),
+                    0
+                  ) / staffOrders.length
+                : 0,
+            };
+          });
+
+          console.log("Final stats:", stats);
+          setStaffStats(stats);
+        } catch (error) {
+          console.error("Failed to fetch orders:", error);
+          addNotification(
+            "error",
+            "Failed to Load Stats",
+            error.message ||
+              "Could not load order statistics. Please try again.",
             "staff"
           );
         }
@@ -114,67 +225,6 @@ const Staff = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  const fetchStaffStats = async () => {
-    try {
-      const response = await ordersAPI.getAll();
-      if (!Array.isArray(response.data)) {
-        console.error("Invalid orders response:", response);
-        return;
-      }
-
-      const orders = response.data;
-
-      // Calculate stats for each staff member
-      const stats = {};
-      staff?.forEach((staffMember) => {
-        if (!staffMember?._id) return;
-
-        const staffOrders = orders.filter(
-          (order) => order?.staffId === staffMember._id
-        );
-
-        // Calculate today's orders
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayOrders = staffOrders.filter((order) => {
-          const orderDate = new Date(order.createdAt);
-          orderDate.setHours(0, 0, 0, 0);
-          return orderDate.getTime() === today.getTime();
-        });
-
-        stats[staffMember._id] = {
-          totalOrders: staffOrders.length,
-          todayOrders: todayOrders.length,
-          totalRevenue: staffOrders.reduce(
-            (sum, order) => sum + (order?.total || 0),
-            0
-          ),
-          todayRevenue: todayOrders.reduce(
-            (sum, order) => sum + (order?.total || 0),
-            0
-          ),
-          uniqueCustomers: new Set(
-            staffOrders.map((order) => order?.customerName).filter(Boolean)
-          ).size,
-          averageOrderValue: staffOrders.length
-            ? staffOrders.reduce((sum, order) => sum + (order?.total || 0), 0) /
-              staffOrders.length
-            : 0,
-        };
-      });
-
-      setStaffStats(stats);
-    } catch (error) {
-      console.error("Failed to fetch staff stats:", error);
-      addNotification(
-        "error",
-        "Failed to Load Stats",
-        error.message || "Could not load staff statistics. Please try again.",
-        "staff"
-      );
-    }
-  };
 
   const fetchPerformanceStats = async (period = "monthly") => {
     try {
@@ -484,14 +534,28 @@ const Staff = () => {
   const renderPerformanceChart = () => {
     if (!performanceStats || !performanceStats.analytics) return null;
 
-    const data = performanceStats.analytics.map((period) => ({
+    // Prepare data for different charts
+    const salesData = performanceStats.analytics.map((period) => ({
       date: period.date,
       value: period.totalSales,
       type: "Total Sales",
     }));
 
-    const config = {
-      data,
+    const ordersData = performanceStats.analytics.map((period) => ({
+      date: period.date,
+      value: period.totalOrders,
+      type: "Total Orders",
+    }));
+
+    const averageOrderData = performanceStats.analytics.map((period) => ({
+      date: period.date,
+      value: period.averageOrderValue,
+      type: "Average Order Value",
+    }));
+
+    // Sales trend configuration
+    const salesConfig = {
+      data: salesData,
       xField: "date",
       yField: "value",
       seriesField: "type",
@@ -510,12 +574,172 @@ const Staff = () => {
           duration: 1000,
         },
       },
+      color: ["#1890ff"],
+    };
+
+    // Orders trend configuration
+    const ordersConfig = {
+      data: ordersData,
+      xField: "date",
+      yField: "value",
+      seriesField: "type",
+      yAxis: {
+        label: {
+          formatter: (v) => `${v} orders`,
+        },
+      },
+      legend: {
+        position: "top",
+      },
+      smooth: true,
+      animation: {
+        appear: {
+          animation: "path-in",
+          duration: 1000,
+        },
+      },
+      color: ["#52c41a"],
+    };
+
+    // Average order value configuration
+    const avgOrderConfig = {
+      data: averageOrderData,
+      xField: "date",
+      yField: "value",
+      seriesField: "type",
+      yAxis: {
+        label: {
+          formatter: (v) => `KES ${v.toLocaleString()}`,
+        },
+      },
+      legend: {
+        position: "top",
+      },
+      smooth: true,
+      animation: {
+        appear: {
+          animation: "path-in",
+          duration: 1000,
+        },
+      },
+      color: ["#722ed1"],
     };
 
     return (
-      <Card title="Performance Trend" loading={loadingStats}>
-        <Line {...config} />
-      </Card>
+      <Row gutter={[16, 16]}>
+        <Col span={24}>
+          <Card
+            title="Performance Overview"
+            extra={
+              <Select
+                value={selectedPeriod}
+                onChange={setSelectedPeriod}
+                style={{ width: 120 }}
+              >
+                <Select.Option value="daily">Daily</Select.Option>
+                <Select.Option value="weekly">Weekly</Select.Option>
+                <Select.Option value="monthly">Monthly</Select.Option>
+              </Select>
+            }
+          >
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={8}>
+                <Card size="small" title="Total Sales Trend">
+                  <Line {...salesConfig} />
+                </Card>
+              </Col>
+              <Col xs={24} md={8}>
+                <Card size="small" title="Orders Trend">
+                  <Line {...ordersConfig} />
+                </Card>
+              </Col>
+              <Col xs={24} md={8}>
+                <Card size="small" title="Average Order Value Trend">
+                  <Line {...avgOrderConfig} />
+                </Card>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+              <Col xs={24} md={12}>
+                <Card size="small" title="Performance Summary">
+                  <Row gutter={[16, 16]}>
+                    <Col span={12}>
+                      <Statistic
+                        title="Total Sales"
+                        value={performanceStats.summary.totalSales}
+                        precision={2}
+                        formatter={(value) => `KES ${value.toLocaleString()}`}
+                        prefix={<DollarOutlined />}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Total Orders"
+                        value={performanceStats.summary.totalOrders}
+                        prefix={<ShoppingOutlined />}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Average Order Value"
+                        value={performanceStats.summary.averageOrderValue}
+                        precision={2}
+                        formatter={(value) => `KES ${value.toLocaleString()}`}
+                        prefix={<DollarOutlined />}
+                      />
+                    </Col>
+                    <Col span={12}>
+                      <Statistic
+                        title="Period"
+                        value={
+                          selectedPeriod.charAt(0).toUpperCase() +
+                          selectedPeriod.slice(1)
+                        }
+                        prefix={<CalendarOutlined />}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
+              </Col>
+              <Col xs={24} md={12}>
+                <Card size="small" title="Performance Metrics">
+                  <Row gutter={[16, 16]}>
+                    <Col span={24}>
+                      <Column
+                        data={[
+                          {
+                            type: "Sales",
+                            value: performanceStats.summary.totalSales,
+                          },
+                          {
+                            type: "Orders",
+                            value: performanceStats.summary.totalOrders,
+                          },
+                          {
+                            type: "Avg. Order",
+                            value: performanceStats.summary.averageOrderValue,
+                          },
+                        ]}
+                        xField="type"
+                        yField="value"
+                        label={{
+                          position: "middle",
+                          style: {
+                            fill: "#FFFFFF",
+                            opacity: 0.6,
+                          },
+                        }}
+                        color={["#1890ff", "#52c41a", "#722ed1"]}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
+              </Col>
+            </Row>
+          </Card>
+        </Col>
+      </Row>
     );
   };
 
@@ -645,24 +869,7 @@ const Staff = () => {
       </Row>
 
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col span={24}>
-          <Card
-            title="Performance Overview"
-            extra={
-              <Select
-                value={selectedPeriod}
-                onChange={setSelectedPeriod}
-                style={{ width: 120 }}
-              >
-                <Select.Option value="daily">Daily</Select.Option>
-                <Select.Option value="weekly">Weekly</Select.Option>
-                <Select.Option value="monthly">Monthly</Select.Option>
-              </Select>
-            }
-          >
-            {renderPerformanceChart()}
-          </Card>
-        </Col>
+        {renderPerformanceChart()}
       </Row>
 
       {/* Add/Edit Modal */}

@@ -119,12 +119,31 @@ router.get("/recent", async (req, res) => {
 // });
 router.get("/sales-report", async (req, res) => {
   try {
-    const today = new Date();
-    const startOfToday = new Date(today);
-    startOfToday.setHours(0, 0, 0, 0);
-    
+    // Get today's date in UTC
+    const now = new Date();
+    const startOfToday = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    );
+
     const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    startOfYesterday.setUTCDate(startOfYesterday.getUTCDate() - 1);
+
+    console.log("Debug dates:", {
+      now: now.toISOString(),
+      startOfToday: startOfToday.toISOString(),
+      startOfYesterday: startOfYesterday.toISOString(),
+    });
+
+    // First, let's check all orders to see their timestamps
+    const allOrders = await Order.find().sort({ createdAt: -1 }).limit(5);
+    console.log(
+      "Recent orders:",
+      allOrders.map((order) => ({
+        id: order._id,
+        createdAt: order.createdAt.toISOString(),
+        total: order.total,
+      }))
+    );
 
     // Single aggregation pipeline for better performance
     const results = await Order.aggregate([
@@ -137,47 +156,47 @@ router.get("/sales-report", async (req, res) => {
                 _id: null,
                 totalOrders: { $sum: 1 },
                 totalRevenue: { $sum: "$total" },
-                uniqueCustomers: { $addToSet: "$customerName" }
-              }
-            }
+                uniqueCustomers: { $addToSet: "$customerName" },
+              },
+            },
           ],
-          
+
           // Today's stats
           todayStats: [
             {
               $match: {
-                createdAt: { $gte: startOfToday }
-              }
+                createdAt: { $gte: startOfToday },
+              },
             },
             {
               $group: {
                 _id: null,
                 todayOrders: { $sum: 1 },
-                todayRevenue: { $sum: "$total" }
-              }
-            }
+                todayRevenue: { $sum: "$total" },
+              },
+            },
           ],
-          
-          // Yesterday's stats  
+
+          // Yesterday's stats
           yesterdayStats: [
             {
               $match: {
-                createdAt: { 
+                createdAt: {
                   $gte: startOfYesterday,
-                  $lt: startOfToday
-                }
-              }
+                  $lt: startOfToday,
+                },
+              },
             },
             {
               $group: {
                 _id: null,
                 yesterdayOrders: { $sum: 1 },
-                yesterdayRevenue: { $sum: "$total" }
-              }
-            }
-          ]
-        }
-      }
+                yesterdayRevenue: { $sum: "$total" },
+              },
+            },
+          ],
+        },
+      },
     ]);
 
     const totalStats = results[0]?.totalStats[0] || {};
@@ -185,35 +204,49 @@ router.get("/sales-report", async (req, res) => {
     const yesterdayStats = results[0]?.yesterdayStats[0] || {};
 
     // Calculate changes
-    const revenueChange = yesterdayStats.yesterdayRevenue > 0 
-      ? ((todayStats.todayRevenue || 0) - yesterdayStats.yesterdayRevenue) / yesterdayStats.yesterdayRevenue * 100
-      : 0;
+    const revenueChange =
+      yesterdayStats.yesterdayRevenue > 0
+        ? (((todayStats.todayRevenue || 0) - yesterdayStats.yesterdayRevenue) /
+            yesterdayStats.yesterdayRevenue) *
+          100
+        : 0;
 
-    const ordersChange = yesterdayStats.yesterdayOrders > 0 
-      ? ((todayStats.todayOrders || 0) - yesterdayStats.yesterdayOrders) / yesterdayStats.yesterdayOrders * 100
-      : 0;
+    const ordersChange =
+      yesterdayStats.yesterdayOrders > 0
+        ? (((todayStats.todayOrders || 0) - yesterdayStats.yesterdayOrders) /
+            yesterdayStats.yesterdayOrders) *
+          100
+        : 0;
 
     const summary = {
       totalOrders: totalStats.totalOrders || 0,
       totalRevenue: totalStats.totalRevenue || 0,
       totalCustomers: totalStats.uniqueCustomers?.length || 0,
-      averageOrderValue: totalStats.totalOrders > 0 
-        ? Math.round((totalStats.totalRevenue / totalStats.totalOrders) * 100) / 100
-        : 0,
+      averageOrderValue:
+        totalStats.totalOrders > 0
+          ? Math.round(
+              (totalStats.totalRevenue / totalStats.totalOrders) * 100
+            ) / 100
+          : 0,
       todayOrders: todayStats.todayOrders || 0,
       todayRevenue: todayStats.todayRevenue || 0,
       revenueChange: Math.round(revenueChange * 100) / 100,
       ordersChange: Math.round(ordersChange * 100) / 100,
     };
 
-    console.log("Sales Summary:", summary);
-    res.json({ success: true, summary });
+    console.log("Debug results:", {
+      totalStats,
+      todayStats,
+      yesterdayStats,
+      summary,
+    });
 
+    res.json({ success: true, summary });
   } catch (error) {
     console.error("Sales report error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Failed to generate sales report" 
+      message: "Failed to generate sales report",
     });
   }
 });
