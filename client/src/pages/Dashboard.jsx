@@ -65,8 +65,6 @@ const Dashboard = () => {
   const [selectedStaff, setSelectedStaff] = useState("all");
   const navigate = useNavigate();
 
-  console.log("selectedStaff", selectedStaff);
-  console.log("staffStats", staffStats);
 
   // Determine if we're on mobile
   const isMobile = !screens.md;
@@ -116,13 +114,7 @@ const Dashboard = () => {
           }),
         ]);
 
-        console.log("Dashboard API Responses:", {
-          stats: statsResponse,
-          recentOrders: recentOrdersResponse,
-          sales: salesResponse,
-          popularMeals: popularMealsResponse,
-        });
-
+     
         // Set stats with null check
         if (statsResponse?.data?.summary) {
           const summary = statsResponse.data.summary;
@@ -193,7 +185,6 @@ const Dashboard = () => {
           const ordersResponse = await ordersAPI.getAll();
           const orders = ordersResponse?.data || [];
 
-          console.log("orders", orders);
 
           if (Array.isArray(orders)) {
             // Calculate staff statistics
@@ -228,7 +219,6 @@ const Dashboard = () => {
               })
             );
 
-            console.log("Formatted staff stats:", formattedStaffStats);
             setStaffStats(formattedStaffStats);
           }
         } catch (error) {
@@ -424,7 +414,6 @@ const Dashboard = () => {
 
   // Add debug render for sales data
   const renderSalesChart = () => {
-    console.log("Current salesData:", salesData);
 
     if (!salesData || !Array.isArray(salesData) || salesData.length === 0) {
       return (

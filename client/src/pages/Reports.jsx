@@ -101,7 +101,6 @@ function Reports() {
         startDate,
         endDate,
       });
-      console.log("Initial sales data:", response.data);
 
       if (response?.data) {
         setReportData(response.data);
@@ -499,7 +498,6 @@ function Reports() {
   const renderSummary = () => {
     if (!reportData) return null;
 
-    console.log("Rendering summary with data:", reportData); // Debug log
 
     switch (reportType) {
       case "sales": {
@@ -507,11 +505,6 @@ function Reports() {
         const totalOrders = reportData.summary?.totalOrders || 0;
         const averageOrderValue = reportData.summary?.averageOrderValue || 0;
 
-        console.log("Sales summary:", {
-          totalSales,
-          totalOrders,
-          averageOrderValue,
-        }); // Debug log
 
         return (
           <Row gutter={16}>

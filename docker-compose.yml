@@ -1,0 +1,28 @@
+
+services:
+
+  backend:
+    build: ./server
+    container_name: backend
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - NODE_ENV=${NODE_ENV}
+      - PORT=5001
+      - CLIENT_URL=${CLIENT_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      # Add other env vars as needed
+
+  frontend:
+    build: ./client
+    container_name: frontend
+    restart: always
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:

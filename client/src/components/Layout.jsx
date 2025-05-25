@@ -34,6 +34,7 @@ import {
 import { logout } from "../store/slices/authSlice";
 import { useNotification } from "../context/NotificationContext";
 import "../styles/notifications.css";
+import logo from "../assets/images/black-parrot.avif";
 
 const { Header, Sider, Content } = Layout;
 
@@ -287,10 +288,24 @@ const AppLayout = () => {
               padding: "16px",
               textAlign: "center",
               borderBottom: "1px solid #f0f0f0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
             }}
           >
-            <Typography.Title level={4} style={{ margin: 0, color: "#e65100" }}>
-              {collapsed ? "RMS" : "Black Parrot"}
+            {!collapsed && (
+              <img
+                src={logo}
+                alt="Black Parrot Logo"
+                style={{
+                  height: "32px",
+                  width: "auto",
+                }}
+              />
+            )}
+            <Typography.Title level={4} style={{ margin: 0, color: "#eb9532" }}>
+              {collapsed ? "BP" : "Black Parrot"}
             </Typography.Title>
           </div>
           <Menu
@@ -403,7 +418,7 @@ const AppLayout = () => {
             height: 100%;
           }
           .mobile-nav-item.active {
-            color: #e65100;
+            color: #eb9532;
             font-weight: 600;
             background: #fff8e1;
           }

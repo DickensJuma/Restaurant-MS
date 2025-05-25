@@ -47,7 +47,6 @@ const Customers = () => {
     try {
       setLoading(true);
       const response = await ordersAPI.getAll();
-      console.log("Fetched orders response:", response);
 
       if (response?.data) {
         setOrders(response.data);
@@ -73,7 +72,6 @@ const Customers = () => {
       return;
     }
 
-    console.log("Calculating popular meals from orders:", ordersData);
     const mealCounts = {};
 
     ordersData.forEach((order) => {
@@ -110,7 +108,6 @@ const Customers = () => {
       return null;
     }
 
-    console.log("Calculating stats for orders:", orders);
 
     const customerOrders = orders.reduce((acc, order) => {
       const customerId = order.customerName || "Walk-in Customer";
@@ -141,12 +138,10 @@ const Customers = () => {
       favoriteItems: Array.from(data.items),
     }));
 
-    console.log("Calculated customer stats:", stats);
     return stats;
   };
 
   const customerStats = calculateStats();
-  console.log("Final customer stats:", customerStats);
 
   const columns = [
     {

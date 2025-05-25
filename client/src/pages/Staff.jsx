@@ -62,14 +62,12 @@ const Staff = () => {
   const { staff } = useSelector((state) => state.staff);
   const { user } = useSelector((state) => state.auth);
   const { addNotification } = useNotification();
-  console.log(staff);
 
   useEffect(() => {
     const fetchStaffData = async () => {
       try {
         setLoading(true);
         const response = await staffAPI.getAll();
-        console.log("Staff API Response:", response);
 
         if (Array.isArray(response)) {
           // Dispatch the staff data to Redux
@@ -181,14 +179,11 @@ const Staff = () => {
   const fetchPerformanceStats = async (period = "monthly") => {
     try {
       setLoadingStats(true);
-      console.log("Fetching performance stats for period:", period);
       const response = await reportsAPI.getPerformanceStats({ period });
-      console.log("Performance stats response:", response);
 
       if (response.data && response.data.success && response.data.data) {
         setPerformanceStats(response.data.data);
       } else {
-        console.error("Invalid performance stats response:", response);
         addNotification(
           "error",
           "Failed to Load Stats",

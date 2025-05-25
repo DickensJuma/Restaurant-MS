@@ -20,7 +20,8 @@ import {
 } from "@ant-design/icons";
 import { authAPI } from "../services/api";
 import { loginSuccess, loginFailure } from "../store/slices/authSlice";
-import image from "../../public/images/bg-login.jpg"; // Adjust the path as necessary
+import image from "../assets/images/bg-login.jpg";
+import logo from "../assets/images/black-parrot.avif";
 const { Title, Text } = Typography;
 
 const Login = () => {
@@ -137,10 +138,15 @@ const Login = () => {
           className="login-logo"
           style={{ position: "absolute", top: 40, left: 40 }}
         >
+          <img
+            src={logo}
+            alt="Black Parrot Logo"
+            style={{ width: 40, height: 40, borderRadius: "50%" }}
+          />
           <Title
             level={2}
             style={{
-              color: "#1877f2",
+              color: "#eb9532",
               margin: 0,
               fontWeight: 700,
               letterSpacing: 1,
@@ -153,7 +159,7 @@ const Login = () => {
         <div style={{ width: "100%", maxWidth: 400, margin: "0 auto" }}>
           <div style={{ marginBottom: 24 }}>
             <Text style={{ fontSize: 12, color: "#888", letterSpacing: 1 }}>
-              CREATE A GREAT IMPACT
+              Welcome back to Black Parrot
             </Text>
             <Title
               level={3}

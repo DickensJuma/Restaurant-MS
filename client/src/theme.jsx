@@ -1,35 +1,35 @@
-import { ConfigProvider } from 'antd';
+import { ConfigProvider } from "antd";
 
 // Restaurant brand colors
 const colors = {
   primary: {
-    main: '#e65100', // Warm orange
-    light: '#ff8f00',
-    dark: '#bf360c',
+    main: "#eb9532", // Warm orange
+    light: "#ffb74d",
+    dark: "#f57c00",
   },
   secondary: {
-    main: '#2e7d32', // Fresh green
-    light: '#4caf50',
-    dark: '#1b5e20',
+    main: "#2e7d32", // Fresh green
+    light: "#4caf50",
+    dark: "#1b5e20",
   },
   accent: {
-    gold: '#ffd700',
-    cream: '#fff8e1',
-    brown: '#5d4037',
+    gold: "#ffd700",
+    cream: "#fff8e1",
+    brown: "#5d4037",
   },
   neutral: {
-    white: '#ffffff',
-    light: '#f5f5f5',
-    medium: '#e0e0e0',
-    dark: '#757575',
-    black: '#212121',
+    white: "#ffffff",
+    light: "#f5f5f5",
+    medium: "#e0e0e0",
+    dark: "#757575",
+    black: "#212121",
   },
   status: {
-    success: '#4caf50',
-    warning: '#ff9800',
-    error: '#f44336',
-    info: '#2196f3',
-  }
+    success: "#4caf50",
+    warning: "#ff9800",
+    error: "#f44336",
+    info: "#2196f3",
+  },
 };
 
 // Custom theme configuration
@@ -39,7 +39,7 @@ export const customTheme = {
     colorPrimary: colors.primary.main,
     colorPrimaryHover: colors.primary.light,
     colorPrimaryActive: colors.primary.dark,
-    
+
     // Secondary colors
     colorSuccess: colors.secondary.main,
     colorWarning: colors.status.warning,
@@ -54,7 +54,8 @@ export const customTheme = {
     colorTextSecondary: colors.neutral.dark,
 
     // Typography
-    fontFamily: "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    fontFamily:
+      "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
     fontSize: 14,
     borderRadius: 8,
 
@@ -76,7 +77,7 @@ export const customTheme = {
     // Card customization
     Card: {
       borderRadius: 12,
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
     },
 
     // Input customization
@@ -125,7 +126,7 @@ export const ThemeProvider = ({ children }) => {
     <ConfigProvider
       theme={customTheme}
       componentSize="middle"
-      space={{ size: 'middle' }}
+      space={{ size: "middle" }}
     >
       {children}
     </ConfigProvider>
@@ -137,10 +138,10 @@ export const styles = {
   // Card styles
   card: {
     borderRadius: 12,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    transition: 'all 0.3s ease',
-    '&:hover': {
-      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    transition: "all 0.3s ease",
+    "&:hover": {
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
     },
   },
 
@@ -148,7 +149,7 @@ export const styles = {
   button: {
     borderRadius: 8,
     height: 40,
-    padding: '0 24px',
+    padding: "0 24px",
   },
 
   // Input styles
@@ -162,20 +163,20 @@ export const styles = {
     padding: 24,
     background: colors.neutral.white,
     borderRadius: 12,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
 
   // Header styles
   header: {
     background: colors.neutral.white,
-    padding: '0 24px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    padding: "0 24px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
 
   // Sidebar styles
   sidebar: {
     background: colors.neutral.white,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   },
 };
 
@@ -183,7 +184,7 @@ export const styles = {
 export const themeUtils = {
   // Color utilities
   colors,
-  
+
   // Spacing utilities
   spacing: {
     xs: 8,
@@ -195,12 +196,12 @@ export const themeUtils = {
 
   // Breakpoint utilities
   breakpoints: {
-    xs: '480px',
-    sm: '576px',
-    md: '768px',
-    lg: '992px',
-    xl: '1200px',
-    xxl: '1600px',
+    xs: "480px",
+    sm: "576px",
+    md: "768px",
+    lg: "992px",
+    xl: "1200px",
+    xxl: "1600px",
   },
 
   // Typography utilities

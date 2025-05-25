@@ -1,6 +1,11 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+require('dotenv').config();
+
+console.log('JWT_SECRET loaded:', !!process.env.JWT_SECRET); // Should log 'true'
+console.log('JWT_SECRET value:', process.env.JWT_SECRET?.substring(0, 10) + '...'); // First 10 chars
+
 
 // Register a new user
 exports.register = async (req, res) => {
@@ -29,7 +34,7 @@ exports.register = async (req, res) => {
     // Generate token
     const token = jwt.sign(
       { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'your_jwt_secret',
       { expiresIn: "1d" }
     );
 
@@ -68,6 +73,7 @@ exports.login = async (req, res) => {
     if (!isValidPassword) {
       return res.status(400).json({ error: "Invalid credentials" });
     }
+
 
     // Generate token
     const token = jwt.sign(

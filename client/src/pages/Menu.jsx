@@ -48,7 +48,6 @@ const Menu = () => {
   const [imageError, setImageError] = useState(null);
   const { addNotification } = useNotification();
 
-  console.log("meals", meals);
 
   useEffect(() => {
     fetchMeals();
