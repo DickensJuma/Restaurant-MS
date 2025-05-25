@@ -22,6 +22,13 @@ app.use(morgan("dev"));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Routes
+// root route
+app.get("/", (req, res) => {
+  res.json({
+    message: "Welcome to the Black Parrot API",
+    version: "1.0.0",
+  });
+});
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/meals", require("./routes/meals"));
 app.use("/api/orders", require("./routes/orders"));
