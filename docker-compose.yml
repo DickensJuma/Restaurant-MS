@@ -1,6 +1,4 @@
-
 services:
-
   backend:
     build: ./server
     container_name: backend
@@ -19,9 +17,19 @@ services:
     build: ./client
     container_name: frontend
     restart: always
+    volumes:
+      - ./client/dist:/usr/share/nginx/html
+    depends_on:
+      - backend
+
+  nginx:
+    build: ./nginx
+    container_name: nginx
+    restart: always
     ports:
       - "3001:3001"
     depends_on:
+      - frontend
       - backend
 
 volumes:
