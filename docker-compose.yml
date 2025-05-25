@@ -20,7 +20,7 @@ services:
     container_name: frontend
     restart: always
     volumes:
-      - ./client/dist:/usr/share/nginx/html
+      - frontend-build:/usr/share/nginx/html
     depends_on:
       - backend
     networks:
@@ -32,6 +32,8 @@ services:
     restart: always
     ports:
       - "3001:3001"
+    volumes:
+      - frontend-build:/usr/share/nginx/html
     depends_on:
       - frontend
       - backend
@@ -44,3 +46,4 @@ networks:
 
 volumes:
   mongo-data:
+  frontend-build:
