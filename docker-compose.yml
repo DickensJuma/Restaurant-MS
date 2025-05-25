@@ -11,7 +11,9 @@ services:
       - PORT=5001
       - CLIENT_URL=${CLIENT_URL}
       - JWT_SECRET=${JWT_SECRET}
-      # Add other env vars as needed
+    networks:
+      - app-network
+    # Add other env vars as needed
 
   frontend:
     build: ./client
@@ -21,6 +23,8 @@ services:
       - ./client/dist:/usr/share/nginx/html
     depends_on:
       - backend
+    networks:
+      - app-network
 
   nginx:
     build: ./nginx
@@ -31,6 +35,12 @@ services:
     depends_on:
       - frontend
       - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   mongo-data:
